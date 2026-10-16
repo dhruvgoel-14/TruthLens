@@ -17,7 +17,7 @@ def _require(name: str) -> str:
 TINYFISH_API_KEY = _require("TINYFISH_API_KEY")
 GEMINI_API_KEY = _require("GEMINI_API_KEY")
 
-GEMINI_MODEL = "gemini-3.1-flash-lite"
+GEMINI_MODEL = "gemini-3.8-flash"
 
 # Timeouts in seconds unless noted
 PLANNER_TIMEOUT = 2.5
