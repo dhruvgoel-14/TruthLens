@@ -32,3 +32,6 @@ gemini_error.txt
 .coverage
 htmlcov/
 
+# Dev-only scripts and test data (not part of the deployed app)
+backend/scripts/
+backend/tests/

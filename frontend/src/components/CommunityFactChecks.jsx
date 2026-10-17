@@ -1,36 +1,8 @@
 import { useEffect, useState } from "react";
+import { fetchCommunityClaims } from "../api";
+import { timeAgo, verdicts } from "../lib";
 
 const PAGE_SIZE = 8;
-
-const verdictLabels = {
-  SUPPORTED: "Supported",
-  REFUTED: "Refuted",
-  INSUFFICIENT_EVIDENCE: "Insufficient evidence",
-  UNVERIFIED_NO_AUTHORITATIVE_SOURCES: "Unverified",
-};
-
-const verdictClasses = {
-  SUPPORTED: "supported",
-  REFUTED: "refuted",
-  INSUFFICIENT_EVIDENCE: "insufficient",
-  UNVERIFIED_NO_AUTHORITATIVE_SOURCES: "unverified",
-};
-
-function timeAgo(iso) {
-  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  const units = [
-    ["day", 86400],
-    ["hour", 3600],
-    ["minute", 60],
-  ];
-  for (const [name, size] of units) {
-    if (seconds >= size) {
-      const n = Math.floor(seconds / size);
-      return `${n} ${name}${n === 1 ? "" : "s"} ago`;
-    }
-  }
-  return "Just now";
-}
 
 export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
   const [page, setPage] = useState(1);
@@ -42,14 +14,7 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/community-claims?page=${page}&page_size=${PAGE_SIZE}`)
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.detail || "Could not load community fact-checks.");
-        }
-        return data;
-      })
+    fetchCommunityClaims(page, PAGE_SIZE)
       .then((data) => {
         if (!cancelled) {
           setError("");
@@ -119,8 +84,8 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
         {items.map((item) => (
           <article className="cfc-card" key={item.id}>
             <div className="cfc-card-top">
-              <span className={`cfc-badge ${verdictClasses[item.verdict] || "unverified"}`}>
-                {verdictLabels[item.verdict] || item.verdict}
+              <span className={`cfc-badge ${verdicts[item.verdict]?.tone || "unverified"}`}>
+                {verdicts[item.verdict]?.label || item.verdict}
               </span>
               {item.zombie_suspected && (
                 <span className="cfc-badge recycled">↻ Possibly recycled</span>
