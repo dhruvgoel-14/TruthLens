@@ -1,6 +1,6 @@
 
 from typing import Any, Literal
-
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -75,3 +75,24 @@ class AnalyzeResponse(BaseModel):
 
     analysis_id: str | None = None
     escalation_available: bool = False
+
+class CommunityClaim(BaseModel):
+    """Summary card for a previously analyzed claim."""
+
+    id: str
+    claim: str
+    verdict: str | None = None
+    consensus_score: float | None = None
+    explanation_snippet: str | None = None
+    zombie_suspected: bool = False
+    analysis_count: int = 1
+    first_analyzed_at: datetime
+    last_analyzed_at: datetime
+
+
+class CommunityClaimsPage(BaseModel):
+    items: list[CommunityClaim]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int

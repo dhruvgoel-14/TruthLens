@@ -8,3 +8,4 @@ rank_bm25
 python-dotenv
 pytest
 pytest-asyncio
+pymongo>=4.13

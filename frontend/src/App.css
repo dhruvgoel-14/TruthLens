@@ -1825,3 +1825,162 @@ textarea:focus {
   background: #53d7a1;
   box-shadow: 0 0 10px #53d7a155;
 }
+
+/* ===== Community Fact-Checks ===== */
+.cfc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 8px;
+}
+
+.cfc-header h2 {
+  margin: 6px 0 8px;
+  font-family: "Manrope", sans-serif;
+  font-size: 30px;
+}
+
+.cfc-header p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.cfc-list {
+  display: grid;
+  gap: 14px;
+}
+
+.cfc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.cfc-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cfc-badge {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.cfc-badge.supported {
+  color: var(--green);
+  border-color: rgba(83, 215, 161, 0.4);
+  background: rgba(83, 215, 161, 0.1);
+}
+
+.cfc-badge.refuted {
+  color: var(--red);
+  border-color: rgba(255, 113, 136, 0.4);
+  background: rgba(255, 113, 136, 0.1);
+}
+
+.cfc-badge.insufficient,
+.cfc-badge.recycled {
+  color: var(--amber);
+  border-color: rgba(244, 198, 106, 0.4);
+  background: rgba(244, 198, 106, 0.1);
+}
+
+.cfc-badge.count {
+  color: var(--purple);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.cfc-time {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cfc-claim,
+.cfc-snippet {
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+
+.cfc-claim {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
+}
+
+.cfc-snippet {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+  -webkit-line-clamp: 2;
+}
+
+.cfc-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cfc-open,
+.cfc-pagination button,
+.cfc-error button {
+  padding: 8px 14px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.cfc-open:hover,
+.cfc-pagination button:hover:not(:disabled),
+.cfc-error button:hover {
+  border-color: var(--purple);
+}
+
+.cfc-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.cfc-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cfc-empty,
+.cfc-error {
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  color: var(--muted);
+}
+
+.cfc-error {
+  border-style: solid;
+  color: var(--red);
+}

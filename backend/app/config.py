@@ -17,7 +17,10 @@ def _require(name: str) -> str:
 TINYFISH_API_KEY = _require("TINYFISH_API_KEY")
 GEMINI_API_KEY = _require("GEMINI_API_KEY")
 
-GEMINI_MODEL = "gemini-3.8-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
+
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "truthlens")
 
 # Timeouts in seconds unless noted
 PLANNER_TIMEOUT = 2.5

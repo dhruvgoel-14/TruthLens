@@ -1,12 +1,18 @@
-
 import time
 import logging
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models import AnalyzeRequest, AnalyzeResponse
+from app.claims_repo import get_report, list_claims, save_analysis
+from app.db import close_db, init_db
+from app.models import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    CommunityClaimsPage,
+)
 from app.pipeline.orchestrator import orchestrate_claim
 
 # --------------------------------------------------
@@ -20,6 +26,18 @@ logger = logging.getLogger(__name__)
 # FastAPI application
 # --------------------------------------------------
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    try:
+        await init_db()
+    except Exception:
+        logger.warning(
+            "MongoDB unavailable at startup - community fact-checks disabled",
+            exc_info=True,
+        )
+    yield
+    await close_db()
+
 app = FastAPI(
     title="TruthLens API",
     description=(
@@ -27,6 +45,7 @@ app = FastAPI(
         "evidence retrieval, and Gemini-based judgment."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Allow local development frontends and API testing.
@@ -90,6 +109,13 @@ async def analyze_claim(request: AnalyzeRequest):
             or escalation.get("portal_id")
         )
 
+        # Store for the Community Fact-Checks feed. Never fail the user's
+        # analysis because of a database problem.
+        try:
+            await save_analysis(result)
+        except Exception:
+            logger.exception("Failed to store analysis | id=%s", analysis_id)
+
         logger.info(
             "Analysis completed | id=%s | verdict=%s | duration=%.2fs",
             analysis_id,
@@ -122,3 +148,37 @@ async def analyze_claim(request: AnalyzeRequest):
                 f"Analysis ID: {analysis_id}"
             ),
         ) from exc
+
+# --------------------------------------------------
+# Community fact-checks
+# --------------------------------------------------
+
+@app.get("/api/community-claims", response_model=CommunityClaimsPage)
+async def community_claims(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=50),
+):
+    try:
+        return await list_claims(page, page_size)
+    except Exception as exc:
+        logger.exception("Failed to load community claims")
+        raise HTTPException(
+            status_code=503,
+            detail="Community fact-checks are temporarily unavailable.",
+        ) from exc
+
+
+@app.get("/api/community-claims/{claim_id}", response_model=AnalyzeResponse)
+async def community_claim_report(claim_id: str):
+    try:
+        report = await get_report(claim_id)
+    except Exception as exc:
+        logger.exception("Failed to load community report")
+        raise HTTPException(
+            status_code=503,
+            detail="Community fact-checks are temporarily unavailable.",
+        ) from exc
+
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found.")
+    return report
