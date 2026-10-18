@@ -56,7 +56,7 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
   return (
     <section className="cfc-section">
       <div className="cfc-header">
-        <div className="section-kicker">COMMUNITY</div>
+        <div className="kicker">COMMUNITY</div>
         <h2>Community Fact-Checks</h2>
         <p>
           Claims recently investigated by TruthLens users. See what is

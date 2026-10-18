@@ -5,7 +5,7 @@
 :root {
   color-scheme: dark;
   --bg: #030303;
-  --sidebar: #0a0a0a;
+  --surface-0: #0a0a0a;
   --surface: #0f0f0f;
   --surface-2: #141414;
   --glass: rgba(20, 20, 20, 0.6);

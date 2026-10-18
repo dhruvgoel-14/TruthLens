@@ -1,16 +1,25 @@
 import { useEffect, useReducer, useRef, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import "./App.css";
 import { analyzeClaimStream, fetchCommunityReport } from "./api";
 import { initialProgress, progressReducer } from "./progress";
-import Sidebar from "./components/Sidebar";
+import Navbar from "./components/Navbar";
+import About from "./components/About";
 import AnalyzeForm from "./components/AnalyzeForm";
 import Results from "./components/Results";
 import CommunityFactChecks from "./components/CommunityFactChecks";
 
-const viewTitles = { analyze: "Analyze", community: "Community Fact-Checks" };
+// Start every page at the top when the route changes.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 export default function App() {
-  const [view, setView] = useState("analyze");
+  const navigate = useNavigate();
   const [claim, setClaim] = useState("");
   const [language, setLanguage] = useState("en");
   const [analysis, setAnalysis] = useState(null);
@@ -65,7 +74,7 @@ export default function App() {
     setAnalysis(data);
     setError("");
     setSelectedSegment(null);
-    setView("analyze");
+    navigate("/analyze");
     setTimeout(() => {
       document
         .querySelector(".results")
@@ -75,59 +84,60 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar view={view} onChange={setView} />
+      <ScrollToTop />
+      <Navbar />
 
-      <main className="main">
-        <header className="topbar">
-          <div className="breadcrumb">
-            Workspace <span>/</span> <strong>{viewTitles[view]}</strong>
-          </div>
-          <span className="live-pill">
-            <i /> LIVE API
-          </span>
-        </header>
-
-        <div className="page">
-          {view === "community" ? (
-            <CommunityFactChecks
-              onOpenReport={openCommunityReport}
-              refreshKey={analysis?.analysis_id}
-            />
-          ) : (
-            <>
-              <AnalyzeForm
-                claim={claim}
-                onClaimChange={(value) => {
-                  setClaim(value);
-                  setError("");
-                }}
-                language={language}
-                onLanguageChange={setLanguage}
-                loading={loading}
-                progress={progress}
-                error={error}
-                onSubmit={handleAnalyze}
-              />
-              {analysis && !loading && (
-                <Results
-                  analysis={analysis}
-                  isHindi={language === "hi"}
-                  selected={selectedSegment}
-                  onSelect={setSelectedSegment}
-                  onClear={() => {
-                    setAnalysis(null);
+      <main className="page">
+        <Routes>
+          <Route path="/" element={<About />} />
+          <Route
+            path="/analyze"
+            element={
+              <>
+                <AnalyzeForm
+                  claim={claim}
+                  onClaimChange={(value) => {
+                    setClaim(value);
                     setError("");
                   }}
+                  language={language}
+                  onLanguageChange={setLanguage}
+                  loading={loading}
+                  progress={progress}
+                  error={error}
+                  onSubmit={handleAnalyze}
                 />
-              )}
-            </>
-          )}
+                {analysis && !loading && (
+                  <Results
+                    analysis={analysis}
+                    isHindi={language === "hi"}
+                    selected={selectedSegment}
+                    onSelect={setSelectedSegment}
+                    onClear={() => {
+                      setAnalysis(null);
+                      setError("");
+                    }}
+                  />
+                )}
+              </>
+            }
+          />
+          <Route
+            path="/community"
+            element={
+              <CommunityFactChecks
+                onOpenReport={openCommunityReport}
+                refreshKey={analysis?.analysis_id}
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
 
-          <footer className="footer">
-            <span>© 2026 TruthLens</span>
-            <span>Evidence first. Clarity always.</span>
-          </footer>
-        </div>
+        <footer className="footer">
+          <span>© 2026 TruthLens</span>
+          <span>Evidence first. Clarity always.</span>
+        </footer>
       </main>
     </div>
   );

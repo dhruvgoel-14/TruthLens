@@ -12,19 +12,6 @@ export default function AnalyzeForm({
 }) {
   return (
     <>
-      <section className="hero">
-        <div className="eyebrow">CLARITY IN A WORLD OF CLAIMS</div>
-        <h1>
-          Separate the signal
-          <br />
-          from <span>the noise.</span>
-        </h1>
-        <p>
-          Investigate a claim. Examine the evidence. Get a clearer picture of
-          what is actually true.
-        </p>
-      </section>
-
       <section className="card analyzer">
         <div>
           <div className="kicker">START YOUR INVESTIGATION</div>

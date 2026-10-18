@@ -1,0 +1,750 @@
+diff --git a/frontend/package-lock.json b/frontend/package-lock.json
+index 085586c..8abad3d 100644
+--- a/frontend/package-lock.json
++++ b/frontend/package-lock.json
+@@ -11,6 +11,7 @@
+         "@tailwindcss/vite": "^4.3.3",
+         "react": "^19.2.8",
+         "react-dom": "^19.2.8",
++        "react-router-dom": "^7.18.4",
+         "tailwindcss": "^4.3.3"
+       },
+       "devDependencies": {
+@@ -1536,6 +1537,19 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/cookie": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/cookie/-/cookie-1.1.1.tgz",
++      "integrity": "sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "type": "opencollective",
++        "url": "https://opencollective.com/express"
++      }
++    },
+     "node_modules/cross-spawn": {
+       "version": "7.0.6",
+       "resolved": "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz",
+@@ -2646,6 +2660,44 @@
+         "react": "^19.3.1"
+       }
+     },
++    "node_modules/react-router": {
++      "version": "7.18.4",
++      "resolved": "https://registry.npmjs.org/react-router/-/react-router-7.18.4.tgz",
++      "integrity": "sha512-PUPQcMhMGRAslLcvtlPz/kmzBEWPhLdgLFrL7pLNepBL6dX0lWj4WD2cUYVgYCuT3jxvghYFg81cDTj44DhetQ==",
++      "license": "MIT",
++      "dependencies": {
++        "cookie": "^1.0.1",
++        "set-cookie-parser": "^2.6.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "react": ">=18",
++        "react-dom": ">=18"
++      },
++      "peerDependenciesMeta": {
++        "react-dom": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/react-router-dom": {
++      "version": "7.18.4",
++      "resolved": "https://registry.npmjs.org/react-router-dom/-/react-router-dom-7.18.4.tgz",
++      "integrity": "sha512-yrfmJHIpDG7taCpqKjT1G5B6q3O2K+RN8/fgNf0lTjCwiPbQ0ei6vXX9ZjQR+7ld8Tr7Z5xmyMnZ8YJrphWQUw==",
++      "license": "MIT",
++      "dependencies": {
++        "react-router": "7.18.4"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "react": ">=18",
++        "react-dom": ">=18"
++      }
++    },
+     "node_modules/rolldown": {
+       "version": "1.2.14",
+       "resolved": "https://registry.npmjs.org/rolldown/-/rolldown-1.2.14.tgz",
+@@ -2695,6 +2747,12 @@
+         "semver": "bin/semver.js"
+       }
+     },
++    "node_modules/set-cookie-parser": {
++      "version": "2.7.2",
++      "resolved": "https://registry.npmjs.org/set-cookie-parser/-/set-cookie-parser-2.7.2.tgz",
++      "integrity": "sha512-oeM1lpU/UvhTxw+g3cIfxXHyJRc/uidd3yK1P242gzHds0udQBYzs3y8j4gCCW+ZJ7ad0yctld8RYO+bdurlvw==",
++      "license": "MIT"
++    },
+     "node_modules/shebang-command": {
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz",
+diff --git a/frontend/package.json b/frontend/package.json
+index 0a5902a..0269923 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -13,6 +13,7 @@
+     "@tailwindcss/vite": "^4.3.3",
+     "react": "^19.2.8",
+     "react-dom": "^19.2.8",
++    "react-router-dom": "^7.18.4",
+     "tailwindcss": "^4.3.3"
+   },
+   "devDependencies": {
+diff --git a/frontend/src/App.css b/frontend/src/App.css
+index 385e5ea..f67d30c 100644
+--- a/frontend/src/App.css
++++ b/frontend/src/App.css
+@@ -1,52 +1,28 @@
+ /* ===== Layout ===== */
+-.app-shell { display: flex; min-height: 100vh; }
+-
+-.sidebar {
+-  position: sticky; top: 0; height: 100vh; width: 264px; flex: none;
+-  display: flex; flex-direction: column; gap: 24px; padding: 24px 18px;
+-  background: var(--sidebar); border-right: 1px solid var(--border);
+-}
+-.brand { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
+-.brand-logo { width: 38px; height: 38px; object-fit: contain; }
+-.brand strong { display: block; font-size: 16px; letter-spacing: -0.01em; }
+-.brand small { font-size: 12px; color: var(--text-3); }
+-.sidebar-label { padding-left: 12px; margin-bottom: -14px; font-size: 11px; letter-spacing: 0.14em; color: var(--text-3); }
+-.side-nav { display: flex; flex-direction: column; gap: 4px; }
+-.nav-item {
+-  display: flex; align-items: center; gap: 12px; padding: 11px 12px;
+-  border: 1px solid transparent; border-radius: 10px; background: none;
+-  color: var(--text-2); font-size: 14px; font-weight: 500; text-align: left;
+-  transition: background 0.15s, color 0.15s;
+-}
+-.nav-item:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
+-.nav-item.active { background: rgba(255, 255, 255, 0.06); border-color: var(--border-strong); color: var(--cream); }
+-
+-.status-card {
+-  margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+-  border-radius: 12px; background: var(--glass); border: 1px solid var(--border);
++.app-shell { min-height: 100vh; }
++.page {
++  width: 100%; max-width: 920px; min-height: 100vh; margin: 0 auto;
++  padding: 120px 32px 32px; display: flex; flex-direction: column; gap: 28px;
+ }
+-.status-card i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px rgba(16, 185, 129, 0.6); }
+-.status-card strong { display: block; font-size: 13px; }
+-.status-card small { font-size: 12px; color: var(--text-3); }
+-
+-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+-.topbar {
+-  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+-  padding: 16px 40px; background: rgba(10, 10, 10, 0.75); backdrop-filter: blur(12px);
+-  border-bottom: 1px solid var(--border);
++.footer { display: flex; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); }
++
++/* ===== Navbar: floating glass pill, centered ===== */
++.navbar { position: fixed; top: 16px; left: 0; right: 0; z-index: 50; display: flex; justify-content: center; padding: 0 16px; pointer-events: none; }
++.navbar-pill {
++  pointer-events: auto; display: flex; align-items: center; gap: 4px; max-width: 100%; padding: 6px;
++  border-radius: 999px; border: 1px solid var(--border-strong);
++  background: rgba(20, 20, 20, 0.55);
++  -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
++  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+ }
+-.breadcrumb { font-size: 13px; color: var(--text-3); }
+-.breadcrumb span { padding: 0 6px; }
+-.breadcrumb strong { color: var(--text); font-weight: 500; }
+-.live-pill {
+-  display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+-  border: 1px solid rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.08);
+-  color: var(--green); font: 600 11px var(--mono); letter-spacing: 0.08em;
+-}
+-.live-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+-
+-.page { width: 100%; max-width: 920px; margin: 0 auto; padding: 56px 32px 32px; display: flex; flex-direction: column; gap: 28px; }
+-.footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); }
++.navbar-brand { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 6px; color: var(--text); font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
++.navbar-brand:hover, .navbar-link:hover { text-decoration: none; }
++.navbar-brand img { width: 30px; height: 30px; object-fit: contain; }
++.navbar-divider { width: 1px; height: 22px; margin: 0 6px 0 0; background: var(--border-strong); }
++.navbar-link { padding: 9px 16px; border-radius: 999px; color: var(--text-2); font-size: 14px; font-weight: 500; white-space: nowrap; transition: background 0.15s, color 0.15s; }
++.navbar-link:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
++.navbar-link.active { color: var(--cream); background: var(--cream-soft); }
++.label-short { display: none; }
+ 
+ /* ===== Shared bits ===== */
+ .mono { font-family: var(--mono); }
+@@ -79,25 +55,46 @@
+ .spinner { width: 14px; height: 14px; border: 2px solid rgba(10, 10, 10, 0.25); border-top-color: #0a0a0a; border-radius: 50%; animation: spin 0.7s linear infinite; }
+ @keyframes spin { to { transform: rotate(360deg); } }
+ 
+-/* ===== Hero + analyzer ===== */
+-.hero { display: flex; flex-direction: column; gap: 18px; }
+-.eyebrow { display: flex; align-items: center; gap: 12px; font: 500 12px var(--mono); letter-spacing: 0.16em; color: var(--cream); }
+-.eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--cream); }
+-.hero h1 { margin: 0; font-size: clamp(36px, 6vw, 60px); line-height: 1.05; font-weight: 700; letter-spacing: -0.035em; }
+-.hero h1 span { color: var(--cream); font-weight: 500; font-style: italic; }
+-.hero p { margin: 0; max-width: 540px; font-size: 17px; line-height: 1.6; color: var(--text-2); }
++/* ===== Buttons used as links ===== */
++a.primary-button, a.ghost-button { text-decoration: none; }
++.ghost-button { display: inline-flex; align-items: center; padding: 13px 24px; border-radius: 999px; border: 1px solid var(--border-strong); background: none; color: var(--text); font-size: 14px; font-weight: 600; transition: border-color 0.15s, background 0.15s; }
++.ghost-button:hover { border-color: var(--cream-line); background: rgba(255, 255, 255, 0.04); }
+ 
++/* ===== About (landing) ===== */
++.about { display: flex; flex-direction: column; gap: 72px; }
++.about-hero { position: relative; display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 24px 0 8px; text-align: center; }
++.about-hero::before { content: ""; position: absolute; z-index: -1; top: -60px; left: 50%; width: 640px; max-width: 100vw; height: 320px; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(238, 233, 225, 0.08), transparent); }
++.eyebrow { display: flex; align-items: center; gap: 12px; font: 500 12px var(--mono); letter-spacing: 0.16em; color: var(--cream); }
++.eyebrow::before, .eyebrow::after { content: ""; width: 28px; height: 1px; background: var(--cream-line); }
++.about-hero h1 { margin: 0; font-size: clamp(38px, 7vw, 68px); line-height: 1.04; font-weight: 700; letter-spacing: -0.035em; }
++.about-hero h1 span { color: var(--cream); font-weight: 500; font-style: italic; }
++.about-hero p { margin: 0; max-width: 580px; font-size: 17px; line-height: 1.65; color: var(--text-2); }
++.about-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 8px; }
++
++.about-section { display: flex; flex-direction: column; gap: 14px; }
++.about-section h2 { margin: 0 0 10px; font-size: 28px; font-weight: 600; letter-spacing: -0.025em; }
++.about-section .card { gap: 8px; }
++.about-section .card h3 { margin: 0; }
++.about-steps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }
++.step-number { font-size: 12px; letter-spacing: 0.14em; color: var(--cream); }
++.about-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
++.about-grid.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
++
++.about-note { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 28px; border-radius: 20px; border: 1px solid var(--cream-line); background: var(--cream-soft); }
++.about-note p { margin: 0; max-width: 680px; font-size: 15px; line-height: 1.7; color: #d4d4d8; }
++
++/* ===== Analyzer ===== */
+ .analyzer { background: var(--glass); padding: 28px; gap: 18px; backdrop-filter: blur(12px); }
+ .analyzer form { display: flex; flex-direction: column; gap: 10px; }
+ .analyzer textarea {
+   width: 100%; margin-top: 4px; padding: 16px; resize: vertical; min-height: 96px;
+-  border-radius: 12px; background: var(--sidebar); border: 1px solid var(--border-strong); font-size: 15px; line-height: 1.6;
++  border-radius: 12px; background: var(--surface-0); border: 1px solid var(--border-strong); font-size: 15px; line-height: 1.6;
+ }
+ .analyzer textarea:focus { outline: none; border-color: var(--cream-line); }
+ .input-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-3); }
+ .form-bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-top: 6px; }
+ .language-picker { display: flex; align-items: center; gap: 12px; }
+-.segmented { display: flex; padding: 3px; border-radius: 10px; background: var(--sidebar); border: 1px solid var(--border); }
++.segmented { display: flex; padding: 3px; border-radius: 10px; background: var(--surface-0); border: 1px solid var(--border); }
+ .segmented button { padding: 7px 14px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font-size: 13px; }
+ .segmented button.selected { background: var(--cream-soft); color: var(--cream); font-weight: 600; }
+ .samples { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border); }
+@@ -106,7 +103,7 @@
+ 
+ .error-banner { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; font-size: 14px; }
+ /* ===== Live analysis progress ===== */
+-.progress-card { gap: 18px; scroll-margin-top: 88px; }
++.progress-card { gap: 18px; scroll-margin-top: 96px; }
+ .steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+ .step { display: flex; gap: 14px; padding-bottom: 18px; position: relative; }
+ .step:last-child { padding-bottom: 0; }
+@@ -142,7 +139,7 @@
+ }
+ 
+ /* ===== Results ===== */
+-.results { display: flex; flex-direction: column; gap: 18px; }
++.results { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 96px; }
+ .section-head, .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+ .section-head p { margin: 6px 0 0; font-size: 14px; color: var(--text-3); }
+ 
+@@ -214,7 +211,7 @@ a:hover { text-decoration: underline; }
+ 
+ /* ===== Community fact-checks ===== */
+ .cfc-section { display: flex; flex-direction: column; gap: 20px; }
+-.cfc-header h2 { margin: 6px 0 8px; font-size: 30px; letter-spacing: -0.02em; }
++.cfc-header h2 { margin: 6px 0 8px; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+ .cfc-header p { margin: 0; color: var(--text-2); line-height: 1.6; }
+ .cfc-list { display: grid; gap: 14px; }
+ .cfc-card { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); }
+@@ -237,11 +234,13 @@ a:hover { text-decoration: underline; }
+ .cfc-error { border-style: solid; color: #fca5a5; }
+ 
+ /* ===== Small screens ===== */
+-@media (max-width: 860px) {
+-  .app-shell { flex-direction: column; }
+-  .sidebar { position: static; height: auto; width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 16px 20px; border-right: 0; border-bottom: 1px solid var(--border); }
+-  .sidebar-label, .status-card { display: none; }
+-  .side-nav { flex-direction: row; flex-wrap: wrap; }
+-  .topbar { padding: 14px 20px; }
+-  .page { padding: 32px 20px 24px; }
++@media (max-width: 720px) {
++  .navbar-brand span { display: none; }
++  .navbar-brand { padding-right: 6px; }
++  .navbar-link { padding: 9px 12px; font-size: 13px; }
++  .label-full { display: none; }
++  .label-short { display: inline; }
++  .page { padding: 96px 20px 24px; }
++  .about { gap: 56px; }
++  .about-steps { grid-template-columns: 1fr; }
+ }
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index 57ad638..3bcd3ec 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -1,16 +1,23 @@
+ import { useEffect, useReducer, useRef, useState } from "react";
++import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+ import "./App.css";
+ import { analyzeClaimStream, fetchCommunityReport } from "./api";
+ import { initialProgress, progressReducer } from "./progress";
+-import Sidebar from "./components/Sidebar";
++import Navbar from "./components/Navbar";
++import About from "./components/About";
+ import AnalyzeForm from "./components/AnalyzeForm";
+ import Results from "./components/Results";
+ import CommunityFactChecks from "./components/CommunityFactChecks";
+ 
+-const viewTitles = { analyze: "Analyze", community: "Community Fact-Checks" };
++// Start every page at the top when the route changes.
++function ScrollToTop() {
++  const { pathname } = useLocation();
++  useEffect(() => window.scrollTo(0, 0), [pathname]);
++  return null;
++}
+ 
+ export default function App() {
+-  const [view, setView] = useState("analyze");
++  const navigate = useNavigate();
+   const [claim, setClaim] = useState("");
+   const [language, setLanguage] = useState("en");
+   const [analysis, setAnalysis] = useState(null);
+@@ -65,7 +72,7 @@ export default function App() {
+     setAnalysis(data);
+     setError("");
+     setSelectedSegment(null);
+-    setView("analyze");
++    navigate("/analyze");
+     setTimeout(() => {
+       document
+         .querySelector(".results")
+@@ -75,59 +82,60 @@ export default function App() {
+ 
+   return (
+     <div className="app-shell">
+-      <Sidebar view={view} onChange={setView} />
+-
+-      <main className="main">
+-        <header className="topbar">
+-          <div className="breadcrumb">
+-            Workspace <span>/</span> <strong>{viewTitles[view]}</strong>
+-          </div>
+-          <span className="live-pill">
+-            <i /> LIVE API
+-          </span>
+-        </header>
++      <ScrollToTop />
++      <Navbar />
+ 
+-        <div className="page">
+-          {view === "community" ? (
+-            <CommunityFactChecks
+-              onOpenReport={openCommunityReport}
+-              refreshKey={analysis?.analysis_id}
+-            />
+-          ) : (
+-            <>
+-              <AnalyzeForm
+-                claim={claim}
+-                onClaimChange={(value) => {
+-                  setClaim(value);
+-                  setError("");
+-                }}
+-                language={language}
+-                onLanguageChange={setLanguage}
+-                loading={loading}
+-                progress={progress}
+-                error={error}
+-                onSubmit={handleAnalyze}
+-              />
+-              {analysis && !loading && (
+-                <Results
+-                  analysis={analysis}
+-                  isHindi={language === "hi"}
+-                  selected={selectedSegment}
+-                  onSelect={setSelectedSegment}
+-                  onClear={() => {
+-                    setAnalysis(null);
++      <main className="page">
++        <Routes>
++          <Route path="/" element={<About />} />
++          <Route
++            path="/analyze"
++            element={
++              <>
++                <AnalyzeForm
++                  claim={claim}
++                  onClaimChange={(value) => {
++                    setClaim(value);
+                     setError("");
+                   }}
++                  language={language}
++                  onLanguageChange={setLanguage}
++                  loading={loading}
++                  progress={progress}
++                  error={error}
++                  onSubmit={handleAnalyze}
+                 />
+-              )}
+-            </>
+-          )}
++                {analysis && !loading && (
++                  <Results
++                    analysis={analysis}
++                    isHindi={language === "hi"}
++                    selected={selectedSegment}
++                    onSelect={setSelectedSegment}
++                    onClear={() => {
++                      setAnalysis(null);
++                      setError("");
++                    }}
++                  />
++                )}
++              </>
++            }
++          />
++          <Route
++            path="/community"
++            element={
++              <CommunityFactChecks
++                onOpenReport={openCommunityReport}
++                refreshKey={analysis?.analysis_id}
++              />
++            }
++          />
++          <Route path="*" element={<Navigate to="/" replace />} />
++        </Routes>
+ 
+-          <footer className="footer">
+-            <span>© 2026 TruthLens</span>
+-            <span>Evidence first. Clarity always.</span>
+-          </footer>
+-        </div>
++        <footer className="footer">
++          <span>© 2026 TruthLens</span>
++          <span>Evidence first. Clarity always.</span>
++        </footer>
+       </main>
+     </div>
+   );
+diff --git a/frontend/src/components/About.jsx b/frontend/src/components/About.jsx
+new file mode 100644
+index 0000000..876be35
+--- /dev/null
++++ b/frontend/src/components/About.jsx
+@@ -0,0 +1,148 @@
++import { Link } from "react-router-dom";
++
++const steps = [
++  {
++    title: "Break it down",
++    text: "AI turns your claim into focused search queries covering the who, what, where and when.",
++  },
++  {
++    title: "Search the web",
++    text: "Those queries run against the live web to find pages that report on the claim.",
++  },
++  {
++    title: "Read and rank sources",
++    text: "Pages are split into passages and ranked by relevance and by how trustworthy the source is. Official sources come first.",
++  },
++  {
++    title: "Judge and verify",
++    text: "The AI weighs the evidence. Then plain code checks that every quote it cites really appears in the source page.",
++  },
++];
++
++const features = [
++  {
++    title: "Evidence-first verdicts",
++    text: "Supported, Refuted, Insufficient evidence or Unverified, with a consensus score and a plain-language explanation.",
++  },
++  {
++    title: "Verified quotes",
++    text: "Each quote is checked against the fetched page. If the text isn't in the source, it is thrown out.",
++  },
++  {
++    title: "Claim breakdown",
++    text: "See which parts of a claim hold up, which are misleading, and which are contradicted.",
++  },
++  {
++    title: "Source tiers",
++    text: "Official and established sources outrank unclassified or low-priority ones.",
++  },
++  {
++    title: "English and हिंदी",
++    text: "Analyze claims and read the results in English or Hindi.",
++  },
++  {
++    title: "Community Fact-Checks",
++    text: "Past analyses appear in a shared feed, so you can see what others are checking.",
++  },
++];
++
++const uses = [
++  {
++    title: "Forwarded messages",
++    text: "Paste a WhatsApp forward or a social media post before you share it.",
++  },
++  {
++    title: "News headlines",
++    text: "Compare a surprising headline with what reliable sources actually report.",
++  },
++  {
++    title: "Research and journalism",
++    text: "Get a quick, sourced starting point, with links to the original pages.",
++  },
++  {
++    title: "Recycled hoaxes",
++    text: "TruthLens flags claims that look like old news resurfacing as if it were new.",
++  },
++];
++
++export default function About() {
++  return (
++    <div className="about">
++      <section className="about-hero">
++        <div className="eyebrow">CLARITY IN A WORLD OF CLAIMS</div>
++        <h1>
++          Separate the signal
++          <br />
++          from <span>the noise.</span>
++        </h1>
++        <p>
++          TruthLens investigates a claim against real sources and shows the
++          evidence behind every verdict, so you can check the reasoning
++          yourself instead of just trusting an answer.
++        </p>
++        <div className="about-actions">
++          <Link to="/analyze" className="primary-button">
++            Analyze a claim ↗
++          </Link>
++          <Link to="/community" className="ghost-button">
++            Browse community checks
++          </Link>
++        </div>
++      </section>
++
++      <section className="about-section">
++        <div className="kicker">HOW IT WORKS</div>
++        <h2>From a claim to a sourced verdict</h2>
++        <ol className="about-steps">
++          {steps.map((step, index) => (
++            <li key={step.title} className="card">
++              <span className="step-number mono">{String(index + 1).padStart(2, "0")}</span>
++              <h3>{step.title}</h3>
++              <p>{step.text}</p>
++            </li>
++          ))}
++        </ol>
++      </section>
++
++      <section className="about-section">
++        <div className="kicker">WHAT YOU GET</div>
++        <h2>Built to show its work</h2>
++        <div className="about-grid">
++          {features.map((feature) => (
++            <article key={feature.title} className="card">
++              <h3>{feature.title}</h3>
++              <p>{feature.text}</p>
++            </article>
++          ))}
++        </div>
++      </section>
++
++      <section className="about-section">
++        <div className="kicker">HOW YOU CAN USE IT</div>
++        <h2>Check before you believe or share</h2>
++        <div className="about-grid two">
++          {uses.map((use) => (
++            <article key={use.title} className="card">
++              <h3>{use.title}</h3>
++              <p>{use.text}</p>
++            </article>
++          ))}
++        </div>
++      </section>
++
++      <section className="about-note">
++        <div className="kicker accent">GOOD TO KNOW</div>
++        <p>
++          TruthLens is an aid, not a final judge. Results come from an AI model
++          and the sources it can find, so they can be wrong, especially for
++          breaking news or niche topics. The consensus score shows how much the
++          verified evidence agrees. It is not the probability that a claim is
++          true. Always open the original sources.
++        </p>
++        <Link to="/analyze" className="primary-button">
++          Check a claim ↗
++        </Link>
++      </section>
++    </div>
++  );
++}
+diff --git a/frontend/src/components/AnalyzeForm.jsx b/frontend/src/components/AnalyzeForm.jsx
+index f6e4625..88c7a3d 100644
+--- a/frontend/src/components/AnalyzeForm.jsx
++++ b/frontend/src/components/AnalyzeForm.jsx
+@@ -12,19 +12,6 @@ export default function AnalyzeForm({
+ }) {
+   return (
+     <>
+-      <section className="hero">
+-        <div className="eyebrow">CLARITY IN A WORLD OF CLAIMS</div>
+-        <h1>
+-          Separate the signal
+-          <br />
+-          from <span>the noise.</span>
+-        </h1>
+-        <p>
+-          Investigate a claim. Examine the evidence. Get a clearer picture of
+-          what is actually true.
+-        </p>
+-      </section>
+-
+       <section className="card analyzer">
+         <div>
+           <div className="kicker">START YOUR INVESTIGATION</div>
+diff --git a/frontend/src/components/CommunityFactChecks.jsx b/frontend/src/components/CommunityFactChecks.jsx
+index 3ea08ae..be7f949 100644
+--- a/frontend/src/components/CommunityFactChecks.jsx
++++ b/frontend/src/components/CommunityFactChecks.jsx
+@@ -56,7 +56,7 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
+   return (
+     <section className="cfc-section">
+       <div className="cfc-header">
+-        <div className="section-kicker">COMMUNITY</div>
++        <div className="kicker">COMMUNITY</div>
+         <h2>Community Fact-Checks</h2>
+         <p>
+           Claims recently investigated by TruthLens users. See what is
+diff --git a/frontend/src/components/Navbar.jsx b/frontend/src/components/Navbar.jsx
+new file mode 100644
+index 0000000..189c3d3
+--- /dev/null
++++ b/frontend/src/components/Navbar.jsx
+@@ -0,0 +1,34 @@
++import { Link, NavLink } from "react-router-dom";
++
++const links = [
++  { to: "/", label: "About", short: "About", end: true },
++  { to: "/analyze", label: "Analyze Claim", short: "Analyze" },
++  { to: "/community", label: "Community Fact-Checks", short: "Community" },
++];
++
++export default function Navbar() {
++  return (
++    <header className="navbar">
++      <nav className="navbar-pill" aria-label="Main navigation">
++        <Link to="/" className="navbar-brand" aria-label="TruthLens home">
++          {/* Replace frontend/public/logo.svg with your own logo (same file name). */}
++          <img src="/logo.svg" alt="" />
++          <span>TruthLens</span>
++        </Link>
++        <span className="navbar-divider" aria-hidden="true" />
++
++        {links.map(({ to, label, short, end }) => (
++          <NavLink
++            key={to}
++            to={to}
++            end={end}
++            className={({ isActive }) => (isActive ? "navbar-link active" : "navbar-link")}
++          >
++            <span className="label-full">{label}</span>
++            <span className="label-short">{short}</span>
++          </NavLink>
++        ))}
++      </nav>
++    </header>
++  );
++}
+diff --git a/frontend/src/components/Sidebar.jsx b/frontend/src/components/Sidebar.jsx
+deleted file mode 100644
+index ec9d03a..0000000
+--- a/frontend/src/components/Sidebar.jsx
++++ /dev/null
+@@ -1,47 +0,0 @@
+-const items = [
+-  { id: "analyze", label: "Analyze claim", icon: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm9 16-3.5-3.5" },
+-  {
+-    id: "community",
+-    label: "Community Fact-Checks",
+-    icon: "M9 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6M21 20c0-2.6-1.6-4.8-4-5.6",
+-  },
+-];
+-
+-export default function Sidebar({ view, onChange }) {
+-  return (
+-    <aside className="sidebar">
+-      <a className="brand" href="#home" onClick={() => onChange("analyze")}>
+-        {/* Replace frontend/public/logo.svg with your own logo (same file name). */}
+-        <img src="/logo.svg" alt="" className="brand-logo" />
+-        <span>
+-          <strong>TruthLens</strong>
+-          <small>AI-powered fact checking</small>
+-        </span>
+-      </a>
+-
+-      <div className="sidebar-label">WORKSPACE</div>
+-      <nav className="side-nav" aria-label="Main navigation">
+-        {items.map((item) => (
+-          <button
+-            key={item.id}
+-            className={view === item.id ? "nav-item active" : "nav-item"}
+-            onClick={() => onChange(item.id)}
+-          >
+-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+-              <path d={item.icon} />
+-            </svg>
+-            {item.label}
+-          </button>
+-        ))}
+-      </nav>
+-
+-      <div className="status-card">
+-        <i />
+-        <div>
+-          <strong>Live analysis</strong>
+-          <small>Connected to backend API</small>
+-        </div>
+-      </div>
+-    </aside>
+-  );
+-}
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index 4bce71d..47f916c 100644
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -5,7 +5,7 @@
+ :root {
+   color-scheme: dark;
+   --bg: #030303;
+-  --sidebar: #0a0a0a;
++  --surface-0: #0a0a0a;
+   --surface: #0f0f0f;
+   --surface-2: #141414;
+   --glass: rgba(20, 20, 20, 0.6);
+diff --git a/frontend/src/main.jsx b/frontend/src/main.jsx
+index b9a1a6d..2898346 100644
+--- a/frontend/src/main.jsx
++++ b/frontend/src/main.jsx
+@@ -1,10 +1,13 @@
+ import { StrictMode } from 'react'
+ import { createRoot } from 'react-dom/client'
++import { BrowserRouter } from 'react-router-dom'
+ import './index.css'
+ import App from './App.jsx'
+ 
+ createRoot(document.getElementById('root')).render(
+   <StrictMode>
+-    <App />
++    <BrowserRouter>
++      <App />
++    </BrowserRouter>
+   </StrictMode>,
+ )
