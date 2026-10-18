@@ -9,11 +9,13 @@ from app.pipeline.domain_registry import (
 )
 from app.pipeline.fetcher import fetch_urls
 from app.pipeline.chunker import chunk_pages, rank_evidence_chunks
+from app.pipeline.progress import ProgressCallback, emit
 
 
 async def collect_evidence(
     claim: str,
     max_sources: int = 5,
+    on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """
     Search for sources, rank them, fetch their contents,
@@ -33,7 +35,7 @@ async def collect_evidence(
         raise ValueError("max_sources must be between 1 and 10.")
 
     # Stage 1: Generate search queries and search the web.
-    research = await research_claim(claim.strip())
+    research = await research_claim(claim.strip(), on_progress=on_progress)
 
     # Stage 2: Extract unique URLs and retain their metadata.
     source_metadata = {}
@@ -127,11 +129,27 @@ async def collect_evidence(
             **ranked,
         })
 
+    # Tell the caller which sources were chosen before they are fetched.
+    await emit(
+        on_progress,
+        "sources",
+        sources=[
+            {
+                "url": source["url"],
+                "title": source.get("title") or "",
+                "domain": (source.get("domain") or "").removeprefix("www."),
+                "tier": source.get("tier"),
+            }
+            for source in sources
+        ],
+    )
+
     # Stage 6: Fetch the selected webpages.
     fetch_result = None
     evidence_chunks = []
 
     if sources:
+        await emit(on_progress, "fetching", total=len(sources))
         fetch_result = await fetch_urls(
             [source["url"] for source in sources]
         )
@@ -167,6 +185,14 @@ async def collect_evidence(
         if isinstance(response_data, dict)
         else []
     )
+
+    if sources:
+        await emit(
+            on_progress,
+            "fetched",
+            fetched=len(fetched_pages),
+            requested=len(sources),
+        )
 
     # Stage 10: Return the collected evidence.
     return {

@@ -5,6 +5,7 @@ from typing import Any
 
 from app.pipeline.evidence_pipeline import collect_evidence
 from app.pipeline.judge import judge_claim
+from app.pipeline.progress import ProgressCallback, emit
 from app.pipeline.verifier import verify_judgment
 
 
@@ -12,6 +13,7 @@ async def orchestrate_claim(
     claim: str,
     language: str = "en",
     max_sources: int = 5,
+    on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """
     Run the complete TruthLens verification workflow.
@@ -48,6 +50,7 @@ async def orchestrate_claim(
     evidence_result = await collect_evidence(
         claim=claim.strip(),
         max_sources=max_sources,
+        on_progress=on_progress,
     )
 
     timings_ms["evidence_collection"] = round(
@@ -58,6 +61,7 @@ async def orchestrate_claim(
     evidence_chunks = evidence_result.get("evidence_chunks", [])
 
     # Stage 2: Gemini judgment.
+    await emit(on_progress, "judging")
     stage_started = time.perf_counter()
 
     judge_output = await asyncio.to_thread(
@@ -72,6 +76,7 @@ async def orchestrate_claim(
     )
 
     # Stage 3: Deterministic verification.
+    await emit(on_progress, "verifying")
     stage_started = time.perf_counter()
 
     verified_result = verify_judgment(

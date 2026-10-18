@@ -1,4 +1,5 @@
 
+import asyncio
 import inspect
 from typing import Any
 
@@ -58,7 +59,9 @@ async def fetch_urls(urls: list[str]) -> dict[str, Any]:
     client = TinyFish(api_key=TINYFISH_API_KEY)
 
     try:
-        response = client.fetch.get_contents(
+        # The SDK call is blocking; run it in a worker thread.
+        response = await asyncio.to_thread(
+            client.fetch.get_contents,
             urls=cleaned_urls,
             purpose="Retrieve webpage text for claim verification.",
             format="markdown",

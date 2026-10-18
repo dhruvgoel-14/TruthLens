@@ -1,9 +1,12 @@
+import AnalysisProgress from "./AnalysisProgress";
+
 export default function AnalyzeForm({
   claim,
   onClaimChange,
   language,
   onLanguageChange,
   loading,
+  progress,
   error,
   onSubmit,
 }) {
@@ -77,13 +80,7 @@ export default function AnalyzeForm({
         </div>
       )}
 
-      {loading && (
-        <section className="card loading-card">
-          <h3>Preparing your analysis</h3>
-          <p>Sending your claim to the TruthLens backend for analysis.</p>
-          <div className="loading-track"><span /></div>
-        </section>
-      )}
+      {loading && <AnalysisProgress progress={progress} />}
     </>
   );
 }

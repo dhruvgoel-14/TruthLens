@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import "./App.css";
-import { analyzeClaim, fetchCommunityReport } from "./api";
+import { analyzeClaimStream, fetchCommunityReport } from "./api";
+import { initialProgress, progressReducer } from "./progress";
 import Sidebar from "./components/Sidebar";
 import AnalyzeForm from "./components/AnalyzeForm";
 import Results from "./components/Results";
@@ -16,6 +17,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedSegment, setSelectedSegment] = useState(null);
+  const [progress, dispatchProgress] = useReducer(progressReducer, initialProgress);
+  const abortRef = useRef(null);
+
+  // Cancel any in-flight analysis when the app unmounts.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   async function handleAnalyze(event) {
     event?.preventDefault();
@@ -28,14 +34,27 @@ export default function App() {
     setError("");
     setAnalysis(null);
     setSelectedSegment(null);
+    dispatchProgress({ stage: "reset" });
     setLoading(true);
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      setAnalysis(await analyzeClaim(claim, language));
+      const report = await analyzeClaimStream(
+        claim,
+        language,
+        dispatchProgress,
+        controller.signal
+      );
+      setAnalysis(report);
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+      if (err.name !== "AbortError") {
+        setError(err.message || "Something went wrong.");
+      }
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) setLoading(false);
     }
   }
 
@@ -85,6 +104,7 @@ export default function App() {
                 language={language}
                 onLanguageChange={setLanguage}
                 loading={loading}
+                progress={progress}
                 error={error}
                 onSubmit={handleAnalyze}
               />

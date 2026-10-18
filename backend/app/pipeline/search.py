@@ -6,6 +6,7 @@ from typing import Any
 from tinyfish import TinyFish
 
 from app.config import TINYFISH_API_KEY
+from app.pipeline.progress import ProgressCallback, emit
 
 
 def _to_dict(result: Any) -> Any:
@@ -31,7 +32,8 @@ async def search_one(query: str) -> dict[str, Any]:
     client = TinyFish(api_key=TINYFISH_API_KEY)
 
     try:
-        result = client.search.query(query=query)
+        # The SDK call is blocking; run it in a worker thread.
+        result = await asyncio.to_thread(client.search.query, query=query)
 
         if inspect.isawaitable(result):
             result = await result
@@ -63,6 +65,7 @@ async def search_one(query: str) -> dict[str, Any]:
 async def search_many(
     queries: list[str],
     max_queries: int = 5,
+    on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """Search several queries and retain each query's outcome."""
 
@@ -92,9 +95,23 @@ async def search_many(
 
     # Keep requests sequential initially to avoid unnecessary API load.
     outcomes = []
+    await emit(on_progress, "searching", total=len(cleaned_queries))
 
-    for query in cleaned_queries:
-        outcomes.append(await search_one(query))
+    for index, query in enumerate(cleaned_queries, start=1):
+        outcome = await search_one(query)
+        outcomes.append(outcome)
+
+        response = outcome["results"] if isinstance(outcome["results"], dict) else {}
+        found = response.get("results")
+        await emit(
+            on_progress,
+            "searched",
+            index=index,
+            total=len(cleaned_queries),
+            query=query,
+            found=len(found) if isinstance(found, list) else 0,
+            ok=outcome["error"] is None,
+        )
 
     successful = sum(item["error"] is None for item in outcomes)
 
