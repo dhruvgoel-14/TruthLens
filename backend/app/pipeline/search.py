@@ -21,27 +21,58 @@ def _to_dict(result: Any) -> Any:
     return str(result)
 
 
-async def search_one(query: str) -> dict[str, Any]:
-    """Run one TinyFish search query and return its results."""
+async def search_one(
+    query: str,
+    language: str | None = None,
+    location: str | None = None,
+) -> dict[str, Any]:
+    """Run one TinyFish search query and return its results.
+
+    `language` (e.g. "hi") and `location` (e.g. "India") are optional hints.
+    If TinyFish rejects them, the query is retried once without the hints so a
+    bad hint never costs us the search.
+    """
 
     query = query.strip() if isinstance(query, str) else ""
 
     if not query:
         raise ValueError("Search query cannot be empty.")
 
+    hints = {}
+    if language:
+        hints["language"] = language
+    if location:
+        hints["location"] = location
+
     client = TinyFish(api_key=TINYFISH_API_KEY)
 
-    try:
+    async def run(**kwargs: Any) -> Any:
         # The SDK call is blocking; run it in a worker thread.
-        result = await asyncio.to_thread(client.search.query, query=query)
+        result = await asyncio.to_thread(
+            client.search.query, query=query, **kwargs
+        )
 
         if inspect.isawaitable(result):
             result = await result
+
+        return result
+
+    try:
+        used_hints = hints
+
+        try:
+            result = await run(**hints)
+        except Exception:
+            if not hints:
+                raise
+            used_hints = {}
+            result = await run()
 
         return {
             "query": query,
             "results": _to_dict(result),
             "error": None,
+            "hints": used_hints,
         }
 
     except Exception as exc:
@@ -65,9 +96,14 @@ async def search_one(query: str) -> dict[str, Any]:
 async def search_many(
     queries: list[str],
     max_queries: int = 5,
+    query_params: dict[str, dict[str, str | None]] | None = None,
     on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
-    """Search several queries and retain each query's outcome."""
+    """Search several queries and retain each query's outcome.
+
+    `query_params` optionally maps a query string to its search hints
+    ({"language": ..., "location": ...}).
+    """
 
     if not isinstance(queries, list):
         raise TypeError("queries must be a list of strings.")
@@ -98,7 +134,12 @@ async def search_many(
     await emit(on_progress, "searching", total=len(cleaned_queries))
 
     for index, query in enumerate(cleaned_queries, start=1):
-        outcome = await search_one(query)
+        params = (query_params or {}).get(query, {})
+        outcome = await search_one(
+            query,
+            language=params.get("language"),
+            location=params.get("location"),
+        )
         outcomes.append(outcome)
 
         response = outcome["results"] if isinstance(outcome["results"], dict) else {}

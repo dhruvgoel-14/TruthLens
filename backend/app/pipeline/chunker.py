@@ -166,6 +166,7 @@ def _get_domain(url: str | None) -> str:
 def rank_evidence_chunks(
     chunks: list[dict[str, Any]],
     claim: str,
+    claim_en: str | None = None,
     sources: list[dict[str, Any]] | None = None,
     top_k: int = 12,
     max_chunks_per_domain: int = 3,
@@ -173,6 +174,10 @@ def rank_evidence_chunks(
     """
     Rank evidence chunks using BM25 relevance multiplied by source-tier
     weight. Limit the number of selected chunks per domain.
+
+    When `claim_en` (an English translation) differs from `claim`, its tokens
+    are added to the BM25 query, so a Hindi claim can still match English
+    sources and vice versa.
 
     The returned chunks retain their original metadata and receive
     additional ranking fields.
@@ -184,6 +189,10 @@ def rank_evidence_chunks(
         return []
 
     claim_tokens = tokenize(claim)
+
+    if claim_en and claim_en.strip() and claim_en.strip() != claim.strip():
+        claim_tokens = claim_tokens + tokenize(claim_en)
+
     tokenized_chunks = [tokenize(chunk.get("text", "")) for chunk in chunks]
 
     if not claim_tokens or not any(tokenized_chunks):

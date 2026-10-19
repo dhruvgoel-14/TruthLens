@@ -54,7 +54,7 @@ Misinformation travels faster than corrections. A forwarded message, a screensho
 | Sources are not equal | Sources are ranked in tiers, with official and established outlets weighted above unclassified ones. |
 | Claims are rarely black and white | The claim is split into segments, each marked verified, misleading, or contradicted. |
 | Recycled hoaxes | Claims that look like old news resurfacing as new are flagged. |
-| English-only tools | Claims and explanations work in English, Hindi, and Hinglish. |
+| English-only tools | The claim's language is detected automatically. Every report is written in English and Hindi, and can be switched with one click. |
 | Everyone re-checking the same thing | Analyzed claims appear in a shared Community Fact-Checks feed. Repeats are merged into a single entry. |
 | Staring at a spinner for 40 seconds | Each stage streams to the screen live: queries, searches, sources found, and report generation. |
 
@@ -68,7 +68,7 @@ Misinformation travels faster than corrections. A forwarded message, a screensho
 - **Recycled-claim flag:** warns when a claim may be old information presented as new.
 - **Live progress:** step-by-step status over Server-Sent Events, including the queries used and the sources found.
 - **Community Fact-Checks:** a paginated feed of past analyses, newest first, with a "Checked N times" counter. Open any entry to see its full stored report.
-- **English, Hindi, and Hinglish** support.
+- **English, Hindi, and Hinglish** support. The claim's language is detected automatically (no language picker). Every report contains English and Hindi text, plus Hinglish text for Hinglish claims, and opens in the language the claim was written in. A toggle on the results switches language without a new request.
 
 ---
 
@@ -348,7 +348,6 @@ Interactive docs are available at `/docs` when the backend is running.
 ```json
 {
   "claim": "Drinking warm water cures viral infections.",
-  "language": "en",
   "max_sources": 5
 }
 ```
@@ -356,13 +355,13 @@ Interactive docs are available at `/docs` when the backend is running.
 | Field | Type | Notes |
 |---|---|---|
 | `claim` | string | 1 to 2,000 characters |
-| `language` | `"en"` \| `"hi"` \| `"hinglish"` | Language of the explanation. Default `en`. |
+| `language` | | Deprecated and ignored. The language is detected automatically. Older clients that still send it keep working. |
 | `max_sources` | integer | Pages to fetch, 1 to 10. Default 5. |
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/analyze \
   -H "Content-Type: application/json" \
-  -d '{"claim": "Drinking warm water cures viral infections.", "language": "en"}'
+  -d '{"claim": "Drinking warm water cures viral infections."}'
 ```
 
 ### Response (abridged)
@@ -370,13 +369,15 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
 ```json
 {
   "claim": "Drinking warm water cures viral infections.",
+  "claim_en": "Drinking warm water cures viral infections.",
+  "detected_language": "en",
   "verdict": "REFUTED",
   "judge_verdict": "REFUTED",
   "consensus_score": 100.0,
   "dominant_stance": "CONTRADICTS",
-  "explanation": { "en": "...", "local": "..." },
-  "claim_vs_reality": { "claimed": { "en": "..." }, "actual": { "en": "..." } },
-  "diff_segments": [{ "text": "...", "label": "FALSE", "correction": "..." }],
+  "explanation": { "en": "...", "hi": "...", "original": null },
+  "claim_vs_reality": { "claimed": { "en": "...", "hi": "..." }, "actual": { "en": "...", "hi": "..." } },
+  "diff_segments": [{ "text": "...", "label": "FALSE", "correction": { "en": "...", "hi": "..." } }],
   "evidence": [{
     "chunk_id": 3,
     "source_url": "https://...",
@@ -391,6 +392,8 @@ curl -X POST http://127.0.0.1:8000/api/analyze \
   "analysis_id": "..."
 }
 ```
+
+`detected_language` is `en`, `hi`, `hinglish`, or `other`. Every text field has `en` and `hi`; `original` is filled only for Hinglish claims. `diff_segments[].text` and evidence quotes always stay in their original language.
 
 `verdict` is the **final, verified** verdict. `judge_verdict` is the AI's original proposal, kept for transparency.
 
@@ -477,7 +480,7 @@ TruthLens/
 - **Limited evidence.** Only a handful of pages (5 by default) and the top 12 passages are examined. Paywalled, script-heavy, or slow pages may fail to load.
 - **Poor fit for some claims.** Breaking news, very local events, private matters, opinions, predictions, and niche topics often have too little reliable coverage to judge.
 - **Text only.** Images, video, and audio cannot be analyzed.
-- **Languages.** English, Hindi, and Hinglish only. Hindi and Hinglish support is less tested than English.
+- **Languages.** English, Hindi, and Hinglish are supported. Other languages get English and Hindi output, with detection but less testing. Hindi and Hinglish support is less tested than English, and the Hindi text is written by the AI model, so it can contain translation errors. Evidence quotes always stay in the source's own language.
 - **Results are a snapshot.** Evidence changes over time, and older community entries are not re-checked automatically.
 
 ### Not suitable for

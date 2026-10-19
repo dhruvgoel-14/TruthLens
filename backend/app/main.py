@@ -111,24 +111,20 @@ async def analyze_claim(request: AnalyzeRequest):
     analysis_id = str(uuid4())
     start_time = time.perf_counter()
 
-    logger.info(
-        "Analysis started | id=%s | language=%s",
-        analysis_id,
-        request.language,
-    )
+    logger.info("Analysis started | id=%s", analysis_id)
 
     try:
         result = await orchestrate_claim(
             claim=request.claim,
-            language=request.language,
             max_sources=request.max_sources,
         )
 
         result = await _finalize_result(result, analysis_id)
 
         logger.info(
-            "Analysis completed | id=%s | verdict=%s | duration=%.2fs",
+            "Analysis completed | id=%s | language=%s | verdict=%s | duration=%.2fs",
             analysis_id,
+            result.get("detected_language"),
             result.get("verdict"),
             time.perf_counter() - start_time,
         )
@@ -183,15 +179,10 @@ async def analyze_claim_stream(request: Request, payload: AnalyzeRequest):
 
     async def run_analysis() -> None:
         start_time = time.perf_counter()
-        logger.info(
-            "Streaming analysis started | id=%s | language=%s",
-            analysis_id,
-            payload.language,
-        )
+        logger.info("Streaming analysis started | id=%s", analysis_id)
         try:
             result = await orchestrate_claim(
                 claim=payload.claim,
-                language=payload.language,
                 max_sources=payload.max_sources,
                 on_progress=on_progress,
             )

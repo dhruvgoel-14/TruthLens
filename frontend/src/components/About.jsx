@@ -37,8 +37,8 @@ const features = [
     text: "Official and established sources outrank unclassified or low-priority ones.",
   },
   {
-    title: "English and हिंदी",
-    text: "Analyze claims and read the results in English or Hindi.",
+    title: "English, हिंदी and Hinglish",
+    text: "Claims are language-detected automatically, and every report can be read in English or Hindi.",
   },
   {
     title: "Community Fact-Checks",

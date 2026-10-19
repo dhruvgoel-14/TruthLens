@@ -17,7 +17,7 @@ async function request(url, options, fallbackMessage) {
   return data;
 }
 
-export const analyzeClaim = (claim, language) =>
+export const analyzeClaim = (claim) =>
   request(
     "/api/analyze",
     {
@@ -25,7 +25,6 @@ export const analyzeClaim = (claim, language) =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         claim: claim.trim(),
-        language: language === "hi" ? "hi" : "en",
         max_sources: 5,
       }),
     },
@@ -43,15 +42,15 @@ export const fetchCommunityReport = (id) =>
   request(`/api/community-claims/${id}`, undefined, "Could not load this report.");
 
 // Streams an analysis over Server-Sent Events (POST, so we read the body
-// ourselves instead of using EventSource). Calls onProgress for each pipeline
+// ourselves instead of using EventSource). The backend detects the claim's
+// language, so none is sent. Calls onProgress for each pipeline
 // stage and resolves with the final report.
-export async function analyzeClaimStream(claim, language, onProgress, signal) {
+export async function analyzeClaimStream(claim, onProgress, signal) {
   const response = await fetch("/api/analyze/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
     body: JSON.stringify({
       claim: claim.trim(),
-      language: language === "hi" ? "hi" : "en",
       max_sources: 5,
     }),
     signal,

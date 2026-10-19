@@ -11,15 +11,17 @@ from app.pipeline.verifier import verify_judgment
 
 async def orchestrate_claim(
     claim: str,
-    language: str = "en",
     max_sources: int = 5,
     on_progress: ProgressCallback | None = None,
 ) -> dict[str, Any]:
     """
     Run the complete TruthLens verification workflow.
 
+    The claim's language is detected automatically. The report is always
+    produced in English and Hindi (plus Hinglish when the claim is Hinglish).
+
     Pipeline:
-    1. Collect and rank evidence.
+    1. Detect language, collect and rank evidence.
     2. Ask Gemini to judge the claim.
     3. Verify the judgment deterministically.
     4. Return the complete report and stage timings.
@@ -29,11 +31,6 @@ async def orchestrate_claim(
 
     if len(claim) > 2000:
         raise ValueError("Claim must not exceed 2000 characters.")
-
-    if language not in {"en", "hi", "hinglish"}:
-        raise ValueError(
-            "language must be 'en', 'hi', or 'hinglish'."
-        )
 
     if not isinstance(max_sources, int) or isinstance(max_sources, bool):
         raise ValueError("max_sources must be an integer.")
@@ -59,6 +56,8 @@ async def orchestrate_claim(
 
     normalized_claim = evidence_result.get("claim", claim.strip())
     evidence_chunks = evidence_result.get("evidence_chunks", [])
+    detected_language = evidence_result.get("detected_language", "en")
+    claim_en = evidence_result.get("claim_en") or normalized_claim
 
     # Stage 2: Gemini judgment.
     await emit(on_progress, "judging")
@@ -68,7 +67,8 @@ async def orchestrate_claim(
         judge_claim,
         claim=normalized_claim,
         evidence_chunks=evidence_chunks,
-        language=language,
+        detected_language=detected_language,
+        claim_en=claim_en,
     )
 
     timings_ms["judge"] = round(
@@ -95,7 +95,9 @@ async def orchestrate_claim(
 
     return {
         "claim": normalized_claim,
-        "language": language,
+        "claim_en": claim_en,
+        "detected_language": detected_language,
+        "language": detected_language,  # kept for older clients/reports
         "verdict": verified_result.get("final_verdict"),
         "judge_verdict": judge_output.get("verdict"),
         "explanation": judge_output.get("explanation"),

@@ -4,6 +4,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+# Languages accepted from older clients. The backend now detects the claim's
+# language itself, so this field is optional and ignored.
 Language = Literal["en", "hi", "hinglish"]
 
 
@@ -19,9 +21,13 @@ class AnalyzeRequest(BaseModel):
         description="The claim that TruthLens should investigate.",
     )
 
-    language: Language = Field(
-        default="en",
-        description="Preferred explanation language.",
+    language: Language | None = Field(
+        default=None,
+        deprecated=True,
+        description=(
+            "Deprecated and ignored. The claim's language is detected "
+            "automatically."
+        ),
     )
 
     max_sources: int = Field(
@@ -46,7 +52,11 @@ class AnalyzeResponse(BaseModel):
     """Combined analysis result returned by TruthLens."""
 
     claim: str
-    language: Language
+    claim_en: str | None = None
+    # One of: en, hi, hinglish, other. Reports saved before language detection
+    # existed only have `language`.
+    detected_language: str = "en"
+    language: str | None = None
 
     verdict: str | None = None
     judge_verdict: str | None = None
@@ -84,6 +94,8 @@ class CommunityClaim(BaseModel):
     verdict: str | None = None
     consensus_score: float | None = None
     explanation_snippet: str | None = None
+    explanation_snippet_hi: str | None = None
+    detected_language: str | None = None
     zombie_suspected: bool = False
     analysis_count: int = 1
     first_analyzed_at: datetime

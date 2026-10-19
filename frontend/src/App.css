@@ -93,7 +93,10 @@ a.primary-button, a.ghost-button { text-decoration: none; }
 .analyzer textarea:focus { outline: none; border-color: var(--cream-line); }
 .input-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-3); }
 .form-bottom { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-top: 6px; }
+.auto-language { font-size: 13px; color: var(--text-3); }
 .language-picker { display: flex; align-items: center; gap: 12px; }
+.results-tools { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.source-lang { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; text-transform: uppercase; }
 .segmented { display: flex; padding: 3px; border-radius: 10px; background: var(--surface-0); border: 1px solid var(--border); }
 .segmented button { padding: 7px 14px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font-size: 13px; }
 .segmented button.selected { background: var(--cream-soft); color: var(--cream); font-weight: 600; }

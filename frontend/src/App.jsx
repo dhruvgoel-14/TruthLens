@@ -21,7 +21,6 @@ function ScrollToTop() {
 export default function App() {
   const navigate = useNavigate();
   const [claim, setClaim] = useState("");
-  const [language, setLanguage] = useState("en");
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -53,7 +52,6 @@ export default function App() {
     try {
       const report = await analyzeClaimStream(
         claim,
-        language,
         dispatchProgress,
         controller.signal
       );
@@ -100,8 +98,6 @@ export default function App() {
                     setClaim(value);
                     setError("");
                   }}
-                  language={language}
-                  onLanguageChange={setLanguage}
                   loading={loading}
                   progress={progress}
                   error={error}
@@ -109,8 +105,8 @@ export default function App() {
                 />
                 {analysis && !loading && (
                   <Results
+                    key={analysis.analysis_id || analysis.claim}
                     analysis={analysis}
-                    isHindi={language === "hi"}
                     selected={selectedSegment}
                     onSelect={setSelectedSegment}
                     onClear={() => {

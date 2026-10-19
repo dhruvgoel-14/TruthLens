@@ -4,6 +4,12 @@ import { timeAgo, verdicts } from "../lib";
 
 const PAGE_SIZE = 8;
 
+// Show the summary in the language the claim was written in.
+const snippetFor = (item) =>
+  item.detected_language === "hi" && item.explanation_snippet_hi
+    ? item.explanation_snippet_hi
+    : item.explanation_snippet;
+
 export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
@@ -104,9 +110,7 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
             </div>
 
             <p className="cfc-claim">{item.claim}</p>
-            {item.explanation_snippet && (
-              <p className="cfc-snippet">{item.explanation_snippet}</p>
-            )}
+            {snippetFor(item) && <p className="cfc-snippet">{snippetFor(item)}</p>}
 
             <div className="cfc-footer">
               <span>

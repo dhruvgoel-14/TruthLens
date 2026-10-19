@@ -1,19 +1,47 @@
+import { useState } from "react";
 import { verdicts } from "../lib";
+import {
+  STRINGS,
+  VIEW_LABELS,
+  chromeFor,
+  defaultView,
+  detectedLanguage,
+  pickText,
+  viewsFor,
+} from "../i18n";
 import Evidence from "./Evidence";
 
-export default function Results({ analysis, isHindi, selected, onSelect, onClear }) {
-  const lang = isHindi ? "local" : "en";
-  const pick = (field) => field?.[lang] || field?.en;
+export default function Results({ analysis, selected, onSelect, onClear }) {
+  const detected = detectedLanguage(analysis);
+  const views = viewsFor(detected);
+
+  // The report opens in the language the user wrote the claim in.
+  const [view, setView] = useState(() => defaultView(detected));
+  const t = STRINGS[chromeFor(view)];
+  const pick = (field) => pickText(field, view);
 
   const verdict = analysis.final_verdict || analysis.verdict || "";
-  const meta = verdicts[verdict] || { label: verdict.replaceAll("_", " "), tone: "unverified" };
+  const tone = verdicts[verdict]?.tone || "unverified";
+  const verdictLabel =
+    t.verdicts[verdict] || verdicts[verdict]?.label || verdict.replaceAll("_", " ");
+  const meta = { label: verdictLabel, tone };
   const score = analysis.consensus_score;
   const segments = analysis.diff_segments || [];
   const activeSegment = selected !== null ? segments[selected] : null;
 
-  const explanation = pick(analysis.explanation) || "No explanation is available.";
-  const claimed = pick(analysis.claim_vs_reality?.claimed) || analysis.claim || "";
+  const explanation = pick(analysis.explanation) || t.noExplanation;
+
+  // The claim itself is shown verbatim whenever the view matches the
+  // language it was written in; other views show the translation.
+  const isOriginalView = view === "original" || view === detected;
+  const claimed = isOriginalView
+    ? analysis.claim || ""
+    : pick(analysis.claim_vs_reality?.claimed) || analysis.claim || "";
   const actual = pick(analysis.claim_vs_reality?.actual) || "";
+
+  const segmentLabel = (segment) =>
+    t.labels[segment.label] || segment.label || t.labels.MISLEADING;
+  const correctionOf = (segment) => pick(segment.correction);
 
   function focusSegment(index) {
     onSelect(index);
@@ -26,11 +54,26 @@ export default function Results({ analysis, isHindi, selected, onSelect, onClear
     <section className="results" aria-live="polite">
       <div className="section-head">
         <div>
-          <div className="kicker">INVESTIGATION REPORT</div>
-          <h2>Analysis results</h2>
-          <p>Review the verdict and explore the evidence behind it.</p>
+          <div className="kicker">{t.kicker}</div>
+          <h2>{t.title}</h2>
+          <p>{t.subtitle}</p>
         </div>
-        <button className="text-button" onClick={onClear}>Clear results ×</button>
+        <div className="results-tools">
+          <div className="segmented" role="group" aria-label={t.toggleLabel}>
+            {views.map((option) => (
+              <button
+                type="button"
+                key={option}
+                className={view === option ? "selected" : ""}
+                aria-pressed={view === option}
+                onClick={() => setView(option)}
+              >
+                {VIEW_LABELS[option]}
+              </button>
+            ))}
+          </div>
+          <button className="text-button" onClick={onClear}>{t.clear}</button>
+        </div>
       </div>
 
       <div className={`verdict-card ${meta.tone}`}>
@@ -39,7 +82,7 @@ export default function Results({ analysis, isHindi, selected, onSelect, onClear
           <p>{explanation}</p>
         </div>
         <div className="score-panel">
-          <span className="kicker">CONSENSUS SCORE</span>
+          <span className="kicker">{t.consensus}</span>
           <div className="score-number">
             {score ?? "—"}
             <span>/100</span>
@@ -47,7 +90,7 @@ export default function Results({ analysis, isHindi, selected, onSelect, onClear
           <div className="score-track">
             <span style={{ width: `${Math.max(0, Math.min(100, score ?? 0))}%` }} />
           </div>
-          <small>{analysis.dominant_stance || "No dominant stance"}</small>
+          <small>{t.stances[analysis.dominant_stance] || analysis.dominant_stance || t.noStance}</small>
         </div>
       </div>
 
@@ -55,8 +98,8 @@ export default function Results({ analysis, isHindi, selected, onSelect, onClear
         <div className="notice">
           <b>↻</b>
           <div>
-            <strong>Possible recycled claim</strong>
-            <p>This result has been flagged as potentially recycled or resurfacing news.</p>
+            <strong>{t.zombieTitle}</strong>
+            <p>{t.zombieBody}</p>
           </div>
         </div>
       )}
@@ -64,15 +107,16 @@ export default function Results({ analysis, isHindi, selected, onSelect, onClear
       <section className="card">
         <div className="panel-head">
           <div>
-            <div className="kicker">CLAIM BREAKDOWN</div>
-            <h3>Pinpoint the difference</h3>
+            <div className="kicker">{t.breakdownKicker}</div>
+            <h3>{t.breakdownTitle}</h3>
           </div>
-          <span className="caption">Select a segment to inspect its correction</span>
+          <span className="caption">{t.breakdownHint}</span>
         </div>
 
         <div className="inline-claim" aria-label="Word-by-word claim analysis">
           {segments.map((segment, index) => {
             const label = (segment.label || "MISLEADING").toLowerCase();
+            const correction = correctionOf(segment);
             return (
               <button
                 type="button"
@@ -80,51 +124,51 @@ export default function Results({ analysis, isHindi, selected, onSelect, onClear
                 className={`claim-highlight ${label} ${selected === index ? "chosen" : ""}`}
                 onClick={() => focusSegment(index)}
                 title={
-                  segment.correction
-                    ? `${segment.label}: ${segment.correction}`
-                    : `${segment.label}: Click to inspect related evidence`
+                  correction
+                    ? `${segmentLabel(segment)}: ${correction}`
+                    : `${segmentLabel(segment)}: ${t.inspect}`
                 }
               >
                 {segment.text}
-                {segment.correction && <span className="claim-correction"> ({segment.correction})</span>}
+                {correction && <span className="claim-correction"> ({correction})</span>}
               </button>
             );
           })}
         </div>
 
         <div className="legend">
-          <span><i className="dot true" /> Verified</span>
-          <span><i className="dot misleading" /> Misleading</span>
-          <span><i className="dot false" /> Contradicted</span>
+          <span><i className="dot true" /> {t.legendTrue}</span>
+          <span><i className="dot misleading" /> {t.legendMisleading}</span>
+          <span><i className="dot false" /> {t.legendFalse}</span>
         </div>
 
         {activeSegment && (
           <div className={`segment-note ${String(activeSegment.label || "").toLowerCase()}`}>
-            <strong>{activeSegment.label}</strong>
-            <span>{activeSegment.correction || "Related evidence is highlighted below."}</span>
+            <strong>{segmentLabel(activeSegment)}</strong>
+            <span>{correctionOf(activeSegment) || t.related}</span>
           </div>
         )}
       </section>
 
       <section className="compare-grid">
         <article className="card">
-          <div className="kicker">WHAT WAS CLAIMED</div>
+          <div className="kicker">{t.claimed}</div>
           <p>{claimed}</p>
         </article>
         <article className="card reality">
-          <div className="kicker accent">THE REALITY</div>
+          <div className="kicker accent">{t.reality}</div>
           <p>{actual}</p>
         </article>
       </section>
 
       <Evidence
         analysis={analysis}
+        t={t}
         highlightIds={activeSegment?.evidence_chunk_ids || []}
       />
 
       <p className="disclaimer">
-        ⓘ This report was returned by the live TruthLens backend. The consensus
-        score is not a probability that a claim is true.
+        {t.disclaimer}
       </p>
     </section>
   );

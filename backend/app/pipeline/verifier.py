@@ -116,6 +116,7 @@ def verify_judgment(
             **item,
             "source_url": chunk.get("source_url", ""),
             "domain": chunk.get("domain", ""),
+            "source_language": chunk.get("language"),
             "tier": tier,
             "tier_weight": weight,
             "quote_verified": quote_verified,

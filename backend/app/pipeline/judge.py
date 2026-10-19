@@ -13,10 +13,30 @@ EvidenceStance = Literal["SUPPORTS", "CONTRADICTS", "CONTEXT"]
 DiffLabel = Literal["TRUE", "MISLEADING", "FALSE"]
 
 
+class BilingualText(BaseModel):
+    en: str = Field(description="English version.")
+    hi: str = Field(description="Hindi version, written in Devanagari script.")
+    original: str | None = Field(
+        default=None,
+        description=(
+            "Only when the claim is Hinglish: the same content in natural "
+            "Hinglish (Hindi in Latin script). Otherwise null."
+        ),
+    )
+
+
 class DiffSegment(BaseModel):
-    text: str = Field(description="An exact, contiguous segment of the original claim.")
+    text: str = Field(
+        description=(
+            "An exact, contiguous segment of the ORIGINAL claim, in the "
+            "claim's own language. Never translate it."
+        )
+    )
     label: DiffLabel
-    correction: str | None = None
+    correction: BilingualText | None = Field(
+        default=None,
+        description="Bilingual correction for MISLEADING or FALSE segments; null for TRUE.",
+    )
     evidence_chunk_ids: list[int] = Field(default_factory=list)
 
 
@@ -25,13 +45,6 @@ class EvidenceAssessment(BaseModel):
     stance: EvidenceStance
     verbatim_quote: str = Field(
         description="An exact quotation copied from the referenced evidence chunk."
-    )
-
-
-class BilingualText(BaseModel):
-    en: str
-    local: str = Field(
-        description="Explanation in the user's language, such as Hindi or Hinglish."
     )
 
 
@@ -84,14 +97,22 @@ IMPORTANT RULES:
    a defensible conclusion.
 9. Distinguish a completely false claim from a partly true or misleading
    claim. Do not label an entire claim FALSE just because one detail is wrong.
-10. Split the original claim into contiguous segments. The concatenation
+10. Split the ORIGINAL claim into contiguous segments. The concatenation
     of all diff segment text values must reproduce the original claim
-    exactly, including spaces and punctuation.
+    exactly, including spaces and punctuation. Segment text must be in the
+    claim's own language and script; never use the English translation for
+    segments.
 11. Use TRUE for supported segments, MISLEADING for materially incomplete
     or distorted segments, and FALSE for contradicted segments.
-12. Provide concise explanations in English and in the user's language.
-    For Hindi claims, use Hindi for the local explanation. For Hinglish
-    claims, use natural Hinglish when appropriate.
+12. Every user-facing text field (explanation, claim_vs_reality, and each
+    segment correction) must be written in BOTH English (en) and Hindi (hi,
+    Devanagari script), and both versions must say exactly the same thing.
+    If the claim language is Hinglish, ALSO fill the original field with the
+    same content in natural Hinglish (Hindi written in Latin script). For
+    all other claim languages leave original null. In claim_vs_reality.claimed,
+    the en and hi versions are faithful translations of the claim.
+    Never translate evidence quotations: they stay verbatim in the source's
+    language.
 13. Do not invent a portal ID. No curated portal list is supplied in this
     version, so use null for escalation.portal_id.
 14. zombie_suspected may be true only when the evidence supports concern
@@ -139,7 +160,8 @@ def _format_evidence(chunks: list[dict]) -> str:
 def judge_claim(
     claim: str,
     evidence_chunks: list[dict],
-    language: Literal["en", "hi", "hinglish"] = "en",
+    detected_language: Literal["en", "hi", "hinglish", "other"] = "en",
+    claim_en: str | None = None,
 ) -> dict:
     """
     Evaluate a claim against ranked evidence using Gemini structured output.
@@ -154,8 +176,10 @@ def judge_claim(
     if not isinstance(evidence_chunks, list):
         raise TypeError("evidence_chunks must be a list.")
 
-    if language not in ("en", "hi", "hinglish"):
-        raise ValueError("language must be en, hi, or hinglish.")
+    if detected_language not in ("en", "hi", "hinglish", "other"):
+        raise ValueError(
+            "detected_language must be en, hi, hinglish, or other."
+        )
 
     valid_chunks = [
         chunk
@@ -183,8 +207,10 @@ def judge_claim(
     prompt = (
         f"{JUDGE_PROMPT}\n\n"
         f"Today's date: {date.today().isoformat()}\n"
-        f"User language: {language}\n\n"
+        f"Claim language: {detected_language}\n\n"
         f"ORIGINAL CLAIM:\n{claim.strip()}\n\n"
+        f"ENGLISH TRANSLATION OF THE CLAIM (reference only, never use it "
+        f"for diff segments):\n{(claim_en or claim).strip()}\n\n"
         f"EVIDENCE CHUNKS:\n{evidence_text}"
     )
 

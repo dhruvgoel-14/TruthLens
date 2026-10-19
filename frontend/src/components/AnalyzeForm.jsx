@@ -3,8 +3,6 @@ import AnalysisProgress from "./AnalysisProgress";
 export default function AnalyzeForm({
   claim,
   onClaimChange,
-  language,
-  onLanguageChange,
   loading,
   progress,
   error,
@@ -26,7 +24,7 @@ export default function AnalyzeForm({
             id="claim-input"
             value={claim}
             onChange={(event) => onClaimChange(event.target.value)}
-            placeholder="Paste a news headline, social media post, or claim..."
+            placeholder="Paste a news headline, social media post, or claim, in English, हिंदी or Hinglish..."
             maxLength={2000}
             rows={4}
           />
@@ -36,17 +34,9 @@ export default function AnalyzeForm({
           </div>
 
           <div className="form-bottom">
-            <div className="language-picker">
-              <span className="kicker">LANGUAGE</span>
-              <div className="segmented" role="group" aria-label="Result language">
-                <button type="button" className={language === "en" ? "selected" : ""} onClick={() => onLanguageChange("en")}>
-                  English
-                </button>
-                <button type="button" className={language === "hi" ? "selected" : ""} onClick={() => onLanguageChange("hi")}>
-                  हिंदी
-                </button>
-              </div>
-            </div>
+            <span className="auto-language">
+              Language is detected automatically: English, हिंदी or Hinglish.
+            </span>
 
             <button className="primary-button" type="submit" disabled={loading}>
               {loading ? (

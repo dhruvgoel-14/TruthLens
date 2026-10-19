@@ -162,6 +162,7 @@ async def collect_evidence(
             evidence_chunks = rank_evidence_chunks(
                 chunks=evidence_chunks,
                 claim=research["claim"],
+                claim_en=research.get("claim_en"),
                 sources=sources,
                 top_k=12,
                 max_chunks_per_domain=3,
@@ -197,6 +198,8 @@ async def collect_evidence(
     # Stage 10: Return the collected evidence.
     return {
         "claim": research["claim"],
+        "claim_en": research.get("claim_en") or research["claim"],
+        "detected_language": research.get("detected_language", "en"),
         "search_queries": research["search_queries"],
         "search_summary": {
             "attempted": research["search_results"]["queries_attempted"],

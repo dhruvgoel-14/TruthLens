@@ -4,7 +4,7 @@ import { getDomain, getSourceUrl } from "../lib";
 // shown once (as evidence); only the remaining ones go under "Also consulted".
 const urlKey = (item) => getSourceUrl(item).replace(/#.*$/, "").replace(/\/$/, "");
 
-export default function Evidence({ analysis, highlightIds }) {
+export default function Evidence({ analysis, highlightIds, t }) {
   const evidence = analysis.evidence || [];
   const sources = analysis.sources || [];
   const search = analysis.search_summary;
@@ -14,26 +14,26 @@ export default function Evidence({ analysis, highlightIds }) {
   const others = sources.filter((source) => !cited.has(urlKey(source)));
 
   const trail = [
-    search?.attempted != null && `${search.succeeded ?? 0}/${search.attempted} searches succeeded`,
-    fetched != null && `${fetched} pages read`,
-    `${sources.length} sources considered`,
+    search?.attempted != null && t.searches(search.succeeded ?? 0, search.attempted),
+    fetched != null && t.pagesRead(fetched),
+    t.sourcesConsidered(sources.length),
   ].filter(Boolean);
 
   return (
     <section className="card evidence">
       <div className="panel-head">
         <div>
-          <div className="kicker">EVIDENCE &amp; SOURCES</div>
-          <h3>What the sources say</h3>
-          <p className="caption">Direct quotes from the pages used to reach this verdict.</p>
+          <div className="kicker">{t.evKicker}</div>
+          <h3>{t.evTitle}</h3>
+          <p className="caption">{t.evCaption}</p>
         </div>
-        <span className="pill">{evidence.length} quotes</span>
+        <span className="pill">{t.quotes(evidence.length)}</span>
       </div>
 
       <div className="trail mono">{trail.join("  ·  ")}</div>
 
       {evidence.length === 0 && (
-        <p className="caption">No verified evidence quotes were returned for this claim.</p>
+        <p className="caption">{t.noEvidence}</p>
       )}
 
       <div className="evidence-list">
@@ -49,19 +49,24 @@ export default function Evidence({ analysis, highlightIds }) {
                 <div className="avatar">{getDomain(item).slice(0, 1).toUpperCase() || "S"}</div>
                 <div className="evidence-source">
                   <strong>{getDomain(item) || "Source"}</strong>
-                  <span className="mono">Evidence #{item.chunk_id} · Tier {item.tier ?? "—"}</span>
+                  <span className="mono">
+                    {t.evidenceNo} #{item.chunk_id} · {t.tier} {item.tier ?? "—"}
+                    {item.source_language && !/^en/i.test(item.source_language) && (
+                      <span className="source-lang" title={t.sourceLang}>{item.source_language}</span>
+                    )}
+                  </span>
                 </div>
-                <span className={`badge ${stance}`}>{(item.stance || "EVIDENCE").toUpperCase()}</span>
+                <span className={`badge ${stance}`}>{(t.stances[item.stance] || item.stance || "EVIDENCE").toUpperCase()}</span>
               </div>
 
               <blockquote>“{item.verbatim_quote}”</blockquote>
 
               <div className="evidence-bottom">
                 <span className={item.quote_verified ? "ok" : "warn"}>
-                  {item.quote_verified ? "✓ Quote verified" : "⚠ Unverified quote"}
+                  {item.quote_verified ? t.quoteVerified : t.quoteUnverified}
                 </span>
                 <a href={getSourceUrl(item)} target="_blank" rel="noreferrer">
-                  Read original source ↗
+                  {t.readSource}
                 </a>
               </div>
             </article>
@@ -72,7 +77,7 @@ export default function Evidence({ analysis, highlightIds }) {
       {others.length > 0 && (
         <details className="also">
           <summary>
-            {evidence.length ? "Also consulted" : "Sources consulted"} ({others.length})
+            {evidence.length ? t.alsoConsulted : t.sourcesConsulted} ({others.length})
             <span aria-hidden="true">⌄</span>
           </summary>
           <ul>
