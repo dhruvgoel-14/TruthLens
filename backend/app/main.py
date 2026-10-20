@@ -17,6 +17,7 @@ from app.models import (
     CommunityClaimsPage,
 )
 from app.pipeline.orchestrator import orchestrate_claim
+from app.whatsapp import router as whatsapp_router
 
 # --------------------------------------------------
 # Logging
@@ -60,6 +61,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(whatsapp_router)
 
 
 # --------------------------------------------------

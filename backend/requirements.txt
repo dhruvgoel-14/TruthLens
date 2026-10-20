@@ -9,3 +9,4 @@ python-dotenv
 pytest
 pytest-asyncio
 pymongo>=4.13
+httpx
