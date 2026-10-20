@@ -504,3 +504,15 @@ Do not use TruthLens as the only basis for **medical, legal, financial, safety, 
 - **Do not submit personal, confidential, or sensitive information.**
 
 ---
+
+## Telegram bot (optional)
+
+TruthLens can answer claims sent to a Telegram bot, with the same verdicts and languages as the website. Telegram needs no business verification, so it works immediately.
+
+1. In Telegram, message **@BotFather**, send `/newbot`, and copy the token it gives you.
+2. Set `TELEGRAM_BOT_TOKEN` in `backend/.env` (see `backend/.env.example`).
+3. Start the backend as usual (`uvicorn app.main:app --port 8000`). The bot starts with it and uses long polling, so no public URL or tunnel is needed.
+4. Open your bot in Telegram and send `/start`, then a claim.
+
+In private chats the bot checks any text you send. In groups, use `/check <claim>` or reply to a message with `/check`. For a deployed backend, set `TELEGRAM_MODE=webhook` and `TELEGRAM_WEBHOOK_SECRET`, then run `python tools/telegram_webhook.py set https://<your-host>`. Run only one copy of the backend per bot token in polling mode.
+

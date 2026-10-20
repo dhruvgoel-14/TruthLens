@@ -17,6 +17,9 @@ from app.models import (
     CommunityClaimsPage,
 )
 from app.pipeline.orchestrator import orchestrate_claim
+from app.telegram_bot import router as telegram_router
+from app.telegram_bot import start_polling as start_telegram_polling
+from app.telegram_bot import stop_polling as stop_telegram_polling
 
 # --------------------------------------------------
 # Logging
@@ -38,7 +41,9 @@ async def lifespan(_: FastAPI):
             "MongoDB unavailable at startup - community fact-checks disabled",
             exc_info=True,
         )
+    telegram_task = start_telegram_polling()
     yield
+    await stop_telegram_polling(telegram_task)
     await close_db()
 
 app = FastAPI(
@@ -50,6 +55,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.include_router(telegram_router)
 
 # Allow local development frontends and API testing.
 # We can restrict this later when deploying.
