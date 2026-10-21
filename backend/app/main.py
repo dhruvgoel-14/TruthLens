@@ -3,23 +3,31 @@ import json
 import time
 import logging
 from contextlib import asynccontextmanager
+from typing import Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from app.challenges_repo import ChallengeLimitError, create_challenge
 from app.claims_repo import get_report, list_claims, save_analysis
 from app.db import close_db, init_db
 from app.models import (
     AnalyzeRequest,
     AnalyzeResponse,
+    ChallengeCreate,
+    ChallengeReceipt,
     CommunityClaimsPage,
+    SeenState,
+    VisitorToken,
 )
 from app.pipeline.orchestrator import orchestrate_claim
+from app.seen_repo import get_visitor_secret, set_seen
 from app.telegram_bot import router as telegram_router
 from app.telegram_bot import start_polling as start_telegram_polling
 from app.telegram_bot import stop_polling as stop_telegram_polling
+from app.visitor import issue_token, verify_token
 
 # --------------------------------------------------
 # Logging
@@ -254,13 +262,50 @@ async def analyze_claim_stream(request: Request, payload: AnalyzeRequest):
 # Community fact-checks
 # --------------------------------------------------
 
+async def optional_visitor(
+    x_visitor_token: str | None = Header(default=None),
+) -> str | None:
+    """Visitor ID from a genuine signed token, else ``None`` (never raises)."""
+    if not x_visitor_token:
+        return None
+    try:
+        return verify_token(x_visitor_token, await get_visitor_secret())
+    except Exception:
+        logger.exception("Could not verify visitor token")
+        return None
+
+
+async def require_visitor(
+    visitor_id: str | None = Depends(optional_visitor),
+) -> str:
+    if visitor_id is None:
+        raise HTTPException(status_code=401, detail="A valid visitor token is required.")
+    return visitor_id
+
+
+@app.post("/api/visitor", response_model=VisitorToken)
+async def create_visitor():
+    """Issue an anonymous visitor token. The browser stores it and sends it
+    back in the `X-Visitor-Token` header."""
+    try:
+        return {"visitor_token": issue_token(await get_visitor_secret())}
+    except Exception as exc:
+        logger.exception("Failed to issue visitor token")
+        raise HTTPException(
+            status_code=503,
+            detail="Community fact-checks are temporarily unavailable.",
+        ) from exc
+
+
 @app.get("/api/community-claims", response_model=CommunityClaimsPage)
 async def community_claims(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=50),
+    sort: Literal["recent", "seen"] = Query("recent"),
+    visitor_id: str | None = Depends(optional_visitor),
 ):
     try:
-        return await list_claims(page, page_size)
+        return await list_claims(page, page_size, sort, visitor_id)
     except Exception as exc:
         logger.exception("Failed to load community claims")
         raise HTTPException(
@@ -283,3 +328,61 @@ async def community_claim_report(claim_id: str):
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found.")
     return report
+
+
+async def _set_seen(claim_id: str, visitor_id: str, seen: bool) -> dict:
+    try:
+        state = await set_seen(claim_id, visitor_id, seen)
+    except Exception as exc:
+        logger.exception("Failed to update 'seen' mark")
+        raise HTTPException(
+            status_code=503,
+            detail="Community fact-checks are temporarily unavailable.",
+        ) from exc
+
+    if state is None:
+        raise HTTPException(status_code=404, detail="Claim not found.")
+    return state
+
+
+@app.put("/api/community-claims/{claim_id}/seen", response_model=SeenState)
+async def mark_claim_seen(claim_id: str, visitor_id: str = Depends(require_visitor)):
+    """"I have seen this too". Repeating the request has no extra effect."""
+    return await _set_seen(claim_id, visitor_id, True)
+
+
+@app.delete("/api/community-claims/{claim_id}/seen", response_model=SeenState)
+async def unmark_claim_seen(claim_id: str, visitor_id: str = Depends(require_visitor)):
+    """Undo "I have seen this too"."""
+    return await _set_seen(claim_id, visitor_id, False)
+
+
+@app.post(
+    "/api/community-claims/{claim_id}/challenges",
+    response_model=ChallengeReceipt,
+    status_code=201,
+)
+async def submit_challenge(
+    claim_id: str,
+    payload: ChallengeCreate,
+    visitor_id: str = Depends(require_visitor),
+):
+    """Store a visitor's challenge to a community fact-check.
+
+    Needs `X-Visitor-Token`. Challenges are stored in MongoDB only and are
+    not returned by any public endpoint (they contain contact emails).
+    """
+    try:
+        receipt = await create_challenge(claim_id, visitor_id, payload.model_dump())
+    except ChallengeLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to store challenge")
+        raise HTTPException(
+            status_code=503,
+            detail="Challenges are temporarily unavailable. Please try again later.",
+        ) from exc
+
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="Claim not found.")
+    return receipt

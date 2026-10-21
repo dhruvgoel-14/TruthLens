@@ -24,10 +24,39 @@ def claims_collection():
     return get_db()["claims"]
 
 
+def claim_seen_collection():
+    """One document per (claim, visitor) "I have seen this too" mark."""
+    return get_db()["claim_seen"]
+
+
+def settings_collection():
+    return get_db()["settings"]
+
+
+def challenges_collection():
+    """Visitor challenges to community fact-checks. Holds contact emails."""
+    return get_db()["challenges"]
+
+
 async def init_db() -> None:
     claims = claims_collection()
     await claims.create_index("claim_key", unique=True)
     await claims.create_index([("last_analyzed_at", DESCENDING)])
+    await claims.create_index([("seen_count", DESCENDING), ("last_analyzed_at", DESCENDING)])
+    # Claims saved before this feature have no counter; give them one so the
+    # "most seen" sort treats them as 0 instead of pushing them to the end.
+    await claims.update_many(
+        {"seen_count": {"$exists": False}}, {"$set": {"seen_count": 0}}
+    )
+
+    seen = claim_seen_collection()
+    # A visitor can mark a claim only once.
+    await seen.create_index([("claim_id", 1), ("visitor_id", 1)], unique=True)
+
+    challenges = challenges_collection()
+    await challenges.create_index([("claim_id", 1), ("created_at", DESCENDING)])
+    await challenges.create_index([("visitor_id", 1), ("created_at", DESCENDING)])
+    await challenges.create_index([("status", 1), ("created_at", DESCENDING)])
     logger.info("MongoDB indexes ready")
 
 

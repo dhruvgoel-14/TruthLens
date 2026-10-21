@@ -43,6 +43,25 @@ export default function Results({ analysis, selected, onSelect, onClear }) {
     t.labels[segment.label] || segment.label || t.labels.MISLEADING;
   const correctionOf = (segment) => pick(segment.correction);
 
+  // Opens the browser print dialog ("Save as PDF" gives a shareable file).
+  // Collapsed lists are expanded and the tab title becomes the PDF file name,
+  // then both are restored once the dialog closes.
+  function handleShare() {
+    const previousTitle = document.title;
+    const collapsed = [...document.querySelectorAll(".results details:not([open])")];
+
+    const restore = () => {
+      document.title = previousTitle;
+      collapsed.forEach((el) => el.removeAttribute("open"));
+      window.removeEventListener("afterprint", restore);
+    };
+
+    collapsed.forEach((el) => el.setAttribute("open", ""));
+    document.title = `TruthLens Fact-Card - ${(analysis.claim || "report").slice(0, 60)}`;
+    window.addEventListener("afterprint", restore);
+    window.print();
+  }
+
   function focusSegment(index) {
     onSelect(index);
     document
@@ -52,6 +71,11 @@ export default function Results({ analysis, selected, onSelect, onClear }) {
 
   return (
     <section className="results" aria-live="polite">
+      <div className="print-header" aria-hidden="true">
+        <strong>TruthLens</strong>
+        <span>{new Date().toLocaleDateString()}</span>
+      </div>
+
       <div className="section-head">
         <div>
           <div className="kicker">{t.kicker}</div>
@@ -72,6 +96,14 @@ export default function Results({ analysis, selected, onSelect, onClear }) {
               </button>
             ))}
           </div>
+          <button type="button" className="share-button" onClick={handleShare} title={t.shareHint}>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 9V3h12v6" />
+              <rect x="3" y="9" width="18" height="9" rx="2" />
+              <path d="M6 14h12v7H6z" />
+            </svg>
+            {t.share}
+          </button>
           <button className="text-button" onClick={onClear}>{t.clear}</button>
         </div>
       </div>

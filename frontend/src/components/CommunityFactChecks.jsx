@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
-import { fetchCommunityClaims } from "../api";
+import { fetchCommunityClaims, markClaimSeen, unmarkClaimSeen } from "../api";
 import { timeAgo, verdicts } from "../lib";
+import ChallengeForm from "./ChallengeForm";
 
 const PAGE_SIZE = 8;
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Most recent" },
+  { value: "seen", label: "Most seen" },
+];
 
 // Show the summary in the language the claim was written in.
 const snippetFor = (item) =>
@@ -12,6 +18,10 @@ const snippetFor = (item) =>
 
 export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState("recent");
+  const [pendingIds, setPendingIds] = useState([]);
+  const [challengeId, setChallengeId] = useState(null);
+  const [challengedIds, setChallengedIds] = useState([]);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [openError, setOpenError] = useState("");
@@ -20,11 +30,11 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
   useEffect(() => {
     let cancelled = false;
 
-    fetchCommunityClaims(page, PAGE_SIZE)
+    fetchCommunityClaims(page, PAGE_SIZE, sort)
       .then((data) => {
         if (!cancelled) {
           setError("");
-          setResult(data);
+          setResult({ ...data, sort });
         }
       })
       .catch((err) => {
@@ -34,13 +44,23 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
     return () => {
       cancelled = true;
     };
-  }, [page, refreshKey, retry]);
+  }, [page, sort, refreshKey, retry]);
 
-  const loading = !error && (!result || result.page !== page);
+  const loading =
+    !error && (!result || result.page !== page || result.sort !== sort);
 
   function changePage(next) {
     setError("");
+    setChallengeId(null);
     setPage(next);
+  }
+
+  function changeSort(next) {
+    if (next === sort) return;
+    setError("");
+    setChallengeId(null);
+    setPage(1);
+    setSort(next);
   }
 
   function retryLoad() {
@@ -57,6 +77,44 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
     }
   }
 
+  function patchItem(id, patch) {
+    setResult((prev) =>
+      prev && {
+        ...prev,
+        items: prev.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      }
+    );
+  }
+
+  // "I have seen this too" / undo. The count updates immediately and is
+  // corrected (or rolled back) when the server answers.
+  async function toggleSeen(item) {
+    if (pendingIds.includes(item.id)) return;
+
+    const nextSeen = !item.seen_by_me;
+    setOpenError("");
+    setPendingIds((ids) => [...ids, item.id]);
+    patchItem(item.id, {
+      seen_by_me: nextSeen,
+      seen_count: Math.max(0, item.seen_count + (nextSeen ? 1 : -1)),
+    });
+
+    try {
+      const state = await (nextSeen ? markClaimSeen : unmarkClaimSeen)(item.id);
+      patchItem(item.id, { seen_by_me: state.seen_by_me, seen_count: state.seen_count });
+    } catch (err) {
+      patchItem(item.id, { seen_by_me: item.seen_by_me, seen_count: item.seen_count });
+      setOpenError(err.message || "Could not update your response.");
+    } finally {
+      setPendingIds((ids) => ids.filter((id) => id !== item.id));
+    }
+  }
+
+  function handleChallengeSubmitted(id) {
+    setChallengedIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+    setChallengeId(null);
+  }
+
   const items = result?.items || [];
 
   return (
@@ -68,6 +126,21 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
           Claims recently investigated by TruthLens users. See what is
           circulating and what the evidence says.
         </p>
+      </div>
+
+      <div className="cfc-toolbar" role="group" aria-label="Sort fact-checks">
+        <span>Sort by</span>
+        {SORT_OPTIONS.map((option) => (
+          <button
+            type="button"
+            key={option.value}
+            className={`cfc-sort${sort === option.value ? " active" : ""}`}
+            aria-pressed={sort === option.value}
+            onClick={() => changeSort(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       {openError && <div className="cfc-error">{openError}</div>}
@@ -118,10 +191,50 @@ export default function CommunityFactChecks({ onOpenReport, refreshKey }) {
                 <strong>{item.consensus_score ?? "—"}</strong>
                 {item.consensus_score != null && "/100"}
               </span>
-              <button className="cfc-open" onClick={() => handleOpen(item.id)}>
-                View full report →
-              </button>
+              <div className="cfc-actions">
+                <button
+                  type="button"
+                  className={`cfc-seen${item.seen_by_me ? " active" : ""}`}
+                  aria-pressed={item.seen_by_me}
+                  disabled={pendingIds.includes(item.id)}
+                  title={
+                    item.seen_by_me
+                      ? "Click to undo"
+                      : "Let others know you have come across this claim too"
+                  }
+                  onClick={() => toggleSeen(item)}
+                >
+                  <span aria-hidden="true">{item.seen_by_me ? "✓" : "👁"}</span>
+                  {item.seen_by_me ? "You have seen this too" : "I have seen this too"}
+                  <span className="cfc-seen-count">{item.seen_count}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cfc-challenge"
+                  aria-expanded={challengeId === item.id}
+                  onClick={() => setChallengeId(challengeId === item.id ? null : item.id)}
+                >
+                  Challenge
+                </button>
+                <button className="cfc-open" onClick={() => handleOpen(item.id)}>
+                  View full report →
+                </button>
+              </div>
             </div>
+
+            {challengeId === item.id && (
+              <ChallengeForm
+                claim={item}
+                onCancel={() => setChallengeId(null)}
+                onSubmitted={() => handleChallengeSubmitted(item.id)}
+              />
+            )}
+            {challengeId !== item.id && challengedIds.includes(item.id) && (
+              <p className="cfc-success" role="status">
+                ✓ Thanks, your challenge was submitted. We may contact you at the
+                email you gave.
+              </p>
+            )}
           </article>
         ))}
       </div>

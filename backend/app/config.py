@@ -22,6 +22,10 @@ GEMINI_MODEL = "gemini-2.5-flash"
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "truthlens")
 
+# Secret used to sign anonymous visitor tokens ("I have seen this too").
+# If unset, a random secret is generated once and stored in MongoDB.
+VISITOR_TOKEN_SECRET = os.getenv("VISITOR_TOKEN_SECRET", "").strip()
+
 # Timeouts in seconds unless noted
 PLANNER_TIMEOUT = 2.5
 SEARCH_TIMEOUT = 2.5

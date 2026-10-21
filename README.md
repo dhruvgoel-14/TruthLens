@@ -67,7 +67,8 @@ Misinformation travels faster than corrections. A forwarded message, a screensho
 - **Source tiers:** every source is classified, and the tier is shown next to each quote.
 - **Recycled-claim flag:** warns when a claim may be old information presented as new.
 - **Live progress:** step-by-step status over Server-Sent Events, including the queries used and the sources found.
-- **Community Fact-Checks:** a paginated feed of past analyses, newest first, with a "Checked N times" counter. Open any entry to see its full stored report.
+- **Community Fact-Checks:** a paginated feed of past analyses, newest first, with a "Checked N times" counter and an **"I have seen this too"** button (click again to undo). Sort by most recent or most seen. Open any entry to see its full stored report.
+- **Challenges:** every community fact-check has a **Challenge** button for visitors who think the result is wrong or incomplete. The challenge, a source to verify it, and a contact email are stored in MongoDB for later review.
 - **English, Hindi, and Hinglish** support. The claim's language is detected automatically (no language picker). Every report contains English and Hindi text, plus Hinglish text for Hinglish claims, and opens in the language the claim was written in. A toggle on the results switches language without a new request.
 
 ---
@@ -216,6 +217,26 @@ Every completed analysis is stored in MongoDB so others can see which claims are
 - **Indexes:** a unique index on the claim hash, and an index on the last-analyzed time for the newest-first feed.
 - **Fails safely:** if MongoDB is unreachable, the app still analyzes claims. Only the feed is affected.
 
+#### "I have seen this too"
+
+Anyone can mark a claim they have come across too, without an account, and sort the feed by the result.
+
+- **Visitor tokens:** the first time the feed needs one, the backend (`POST /api/visitor`) creates a random UUID and signs it with HMAC-SHA256: `<uuid>.<signature>`. The browser keeps the token in `localStorage` and sends it in the `X-Visitor-Token` header. Because only the server knows the secret, a client cannot forge or edit a visitor ID.
+- **Records:** one document per `(claim_id, visitor_id)` in the `claim_seen` collection, protected by a unique index, so a visitor counts once per claim. The claim also keeps a `seen_count` counter (updated atomically) so the feed can sort on it with an index.
+- **Undo:** `PUT` marks and `DELETE` unmarks. Both are idempotent, so double clicks and retries never double count.
+- **Secret:** set `VISITOR_TOKEN_SECRET` in production. If it is empty, a random secret is generated once and stored in MongoDB. Changing the secret makes existing tokens invalid, so visitors start over with a new identity.
+- **Limits:** a token identifies a browser, not a person. Someone who clears site data or uses another browser or device can mark a claim again. This is a lightweight signal, not an anti-abuse guarantee.
+
+#### Challenges
+
+A visitor can dispute a community fact-check from its **Challenge** button. For now challenges are only **stored**; nothing reviews or shows them yet.
+
+- **What is collected:** what is wrong (`challenge_type`: wrong verdict, missing context, outdated evidence, misread source, other), the verdict they think is correct (optional), their explanation (20 to 2000 characters), 1 to 5 source links, an email, an optional name, and consent to be contacted.
+- **What is stored with it:** the claim ID, a snapshot of the claim as it was challenged (text, verdict, score, summary, times checked, last analyzed), the anonymous visitor ID, a `status` (`open`) and `created_at`. The snapshot matters because re-analysis replaces a claim's stored report.
+- **Where:** the `challenges` collection in MongoDB, with indexes on `(claim_id, created_at)`, `(visitor_id, created_at)` and `(status, created_at)`.
+- **Privacy:** challenges contain email addresses. No public endpoint returns them, and the API reply only confirms receipt. Restrict database access accordingly.
+- **Abuse limits:** per visitor token, at most 3 challenges per claim and 10 per 24 hours (HTTP 429 after that). Like the "seen" marks, this is a lightweight guard, not strong protection.
+
 ### Backend
 
 | Module | Responsibility |
@@ -224,6 +245,8 @@ Every completed analysis is stored in MongoDB so others can see which claims are
 | `config.py` | Reads environment variables and settings |
 | `models.py` | Pydantic request and response schemas |
 | `db.py` / `claims_repo.py` | MongoDB connection, indexes, saving and listing claims |
+| `visitor.py` / `seen_repo.py` | Signed anonymous visitor tokens, and storage for "I have seen this too" marks |
+| `challenges_repo.py` | Validation limits and storage for visitor challenges |
 | `pipeline/orchestrator.py` | Runs the stages in order and assembles the final report |
 | `pipeline/planner.py` | Gemini search-query planning |
 | `pipeline/search.py` / `fetcher.py` | TinyFish web search and page retrieval |
@@ -340,7 +363,11 @@ Interactive docs are available at `/docs` when the backend is running.
 | `GET` | `/api/health` | Health check |
 | `POST` | `/api/analyze` | Analyze a claim and return the full report in one response |
 | `POST` | `/api/analyze/stream` | Same analysis, streamed as Server-Sent Events with live progress |
-| `GET` | `/api/community-claims?page=1&page_size=10` | Paginated feed, newest first (`page_size` 1 to 50) |
+| `GET` | `/api/community-claims?page=1&page_size=10&sort=recent` | Paginated feed (`page_size` 1 to 50). `sort` is `recent` (newest first, default) or `seen` (most "I have seen this too" first). Send `X-Visitor-Token` to get `seen_by_me` filled in |
+| `POST` | `/api/visitor` | Issue a signed anonymous visitor token |
+| `PUT` | `/api/community-claims/{id}/seen` | Mark "I have seen this too". Needs `X-Visitor-Token`. Idempotent |
+| `DELETE` | `/api/community-claims/{id}/seen` | Undo the mark. Needs `X-Visitor-Token`. Idempotent |
+| `POST` | `/api/community-claims/{id}/challenges` | Store a challenge (`challenge_type`, `suggested_verdict`, `explanation`, `sources`, `email`, `name`, `contact_consent`). Needs `X-Visitor-Token`. Returns `201` with `challenge_id`, `status`, `created_at`. Stored only, never returned by the API |
 | `GET` | `/api/community-claims/{id}` | The stored full report for one entry |
 
 ### Request body

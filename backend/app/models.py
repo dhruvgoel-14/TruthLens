@@ -1,6 +1,8 @@
 
+import re
 from typing import Any, Literal
 from datetime import datetime
+from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -98,6 +100,8 @@ class CommunityClaim(BaseModel):
     detected_language: str | None = None
     zombie_suspected: bool = False
     analysis_count: int = 1
+    seen_count: int = 0
+    seen_by_me: bool = False
     first_analyzed_at: datetime
     last_analyzed_at: datetime
 
@@ -108,3 +112,133 @@ class CommunityClaimsPage(BaseModel):
     page_size: int
     total: int
     total_pages: int
+
+
+class VisitorToken(BaseModel):
+    """Signed anonymous visitor token. Keep it in the browser."""
+
+    visitor_token: str
+
+
+class SeenState(BaseModel):
+    """Result of marking or un-marking "I have seen this too"."""
+
+    claim_id: str
+    seen_count: int
+    seen_by_me: bool
+
+
+# --------------------------------------------------
+# Challenges: a visitor disputes a community fact-check
+# --------------------------------------------------
+
+ChallengeType = Literal[
+    "verdict_wrong",
+    "missing_context",
+    "outdated_evidence",
+    "misread_source",
+    "other",
+]
+
+SuggestedVerdict = Literal[
+    "SUPPORTED",
+    "REFUTED",
+    "INSUFFICIENT_EVIDENCE",
+    "UNVERIFIED_NO_AUTHORITATIVE_SOURCES",
+]
+
+MAX_CHALLENGE_SOURCES = 5
+
+# Practical (HTML5-style) email check; it does not try to cover every corner
+# of RFC 5322.
+_EMAIL_RE = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
+)
+
+
+def _clean_url(value: str) -> str:
+    value = value.strip()
+    parts = urlsplit(value)
+    if (
+        len(value) > 2048
+        or any(ch.isspace() for ch in value)
+        or parts.scheme not in {"http", "https"}
+        or not parts.hostname
+        or "." not in parts.hostname
+    ):
+        raise ValueError(f"'{value[:80]}' is not a valid http(s) link.")
+    return value
+
+
+class ChallengeCreate(BaseModel):
+    """A visitor's challenge to a community fact-check."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    challenge_type: ChallengeType = Field(
+        ..., description="What the visitor thinks is wrong with the fact-check."
+    )
+    suggested_verdict: SuggestedVerdict | None = Field(
+        default=None, description="The verdict the visitor believes is correct."
+    )
+    explanation: str = Field(
+        ...,
+        min_length=20,
+        max_length=2000,
+        description="Why the fact-check is wrong or what it is missing.",
+    )
+    sources: list[str] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_CHALLENGE_SOURCES,
+        description="Links the reviewer can check to verify the challenge.",
+    )
+    email: str = Field(..., max_length=254, description="Contact email.")
+    name: str | None = Field(default=None, max_length=100)
+    contact_consent: bool = Field(
+        ..., description="The visitor agrees to be contacted about this challenge."
+    )
+
+    @field_validator("explanation", "name", "email", mode="before")
+    @classmethod
+    def strip_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("name")
+    @classmethod
+    def blank_name_is_none(cls, value: str | None) -> str | None:
+        return value or None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if not _EMAIL_RE.match(value):
+            raise ValueError("Enter a valid email address.")
+        return value.lower()
+
+    @field_validator("sources")
+    @classmethod
+    def validate_sources(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for url in value:
+            url = _clean_url(url)
+            if url not in cleaned:  # drop duplicates, keep order
+                cleaned.append(url)
+        return cleaned
+
+    @field_validator("contact_consent")
+    @classmethod
+    def must_consent(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("You must agree to be contacted about your challenge.")
+        return value
+
+
+class ChallengeReceipt(BaseModel):
+    """Confirmation returned after a challenge is stored."""
+
+    challenge_id: str
+    status: str
+    created_at: datetime

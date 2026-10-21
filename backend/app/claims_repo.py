@@ -9,6 +9,7 @@ from bson.errors import InvalidId
 from pymongo import DESCENDING
 
 from app.db import claims_collection
+from app.seen_repo import seen_claim_ids
 
 # --- Rules for what is worth showing publicly ---
 MIN_CLAIM_LENGTH = 15
@@ -43,6 +44,17 @@ def is_publishable(result: dict[str, Any]) -> bool:
     return len(claim) >= MIN_CLAIM_LENGTH and verdict in VALID_VERDICTS
 
 
+# Sort orders for the community feed. `_id` breaks ties so pages never overlap.
+SORT_ORDERS = {
+    "recent": [("last_analyzed_at", DESCENDING), ("_id", DESCENDING)],
+    "seen": [
+        ("seen_count", DESCENDING),
+        ("last_analyzed_at", DESCENDING),
+        ("_id", DESCENDING),
+    ],
+}
+
+
 async def save_analysis(result: dict[str, Any]) -> bool:
     """Insert a new claim or bump the counter on an existing one."""
     if not is_publishable(result):
@@ -70,6 +82,7 @@ async def save_analysis(result: dict[str, Any]) -> bool:
             "$setOnInsert": {
                 "claim": claim,
                 "first_analyzed_at": now,
+                "seen_count": 0,
             },
             "$inc": {"analysis_count": 1},
         },
@@ -78,7 +91,7 @@ async def save_analysis(result: dict[str, Any]) -> bool:
     return True
 
 
-def _to_summary(doc: dict[str, Any]) -> dict[str, Any]:
+def _to_summary(doc: dict[str, Any], seen_by_me: bool = False) -> dict[str, Any]:
     return {
         "id": str(doc["_id"]),
         "claim": doc["claim"],
@@ -89,25 +102,38 @@ def _to_summary(doc: dict[str, Any]) -> dict[str, Any]:
         "detected_language": doc.get("detected_language") or doc.get("language"),
         "zombie_suspected": doc.get("zombie_suspected", False),
         "analysis_count": doc.get("analysis_count", 1),
+        "seen_count": doc.get("seen_count", 0),
+        "seen_by_me": seen_by_me,
         "first_analyzed_at": doc["first_analyzed_at"],
         "last_analyzed_at": doc["last_analyzed_at"],
     }
 
 
-async def list_claims(page: int, page_size: int) -> dict[str, Any]:
+async def list_claims(
+    page: int,
+    page_size: int,
+    sort: str = "recent",
+    visitor_id: str | None = None,
+) -> dict[str, Any]:
     claims = claims_collection()
     total = await claims.count_documents({})
 
     cursor = (
         claims.find({}, projection={"report": 0})
-        .sort([("last_analyzed_at", DESCENDING), ("_id", DESCENDING)])
+        .sort(SORT_ORDERS.get(sort, SORT_ORDERS["recent"]))
         .skip((page - 1) * page_size)
         .limit(page_size)
     )
     docs = await cursor.to_list(length=page_size)
 
+    seen_ids = (
+        await seen_claim_ids(visitor_id, [d["_id"] for d in docs])
+        if visitor_id
+        else set()
+    )
+
     return {
-        "items": [_to_summary(d) for d in docs],
+        "items": [_to_summary(d, d["_id"] in seen_ids) for d in docs],
         "page": page,
         "page_size": page_size,
         "total": total,

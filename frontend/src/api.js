@@ -4,7 +4,9 @@
 function errorMessage(data, fallback) {
   const detail = data?.detail ?? data?.error;
   if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail.map((item) => item.msg).join("; ");
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg.replace(/^Value error, /, "")).join("; ");
+  }
   return fallback;
 }
 
@@ -31,11 +33,113 @@ export const analyzeClaim = (claim) =>
     "Claim analysis failed."
   );
 
-export const fetchCommunityClaims = (page, pageSize) =>
-  request(
-    `/api/community-claims?page=${page}&page_size=${pageSize}`,
+// --- Anonymous visitor identity ("I have seen this too") ---
+// The server issues a signed random token the first time we need one. We keep
+// it in localStorage (and in memory, in case storage is blocked) and send it
+// back in the X-Visitor-Token header.
+const VISITOR_KEY = "truthlens_visitor_token";
+let memoryToken = null;
+let tokenRequest = null;
+
+function readToken() {
+  try {
+    return localStorage.getItem(VISITOR_KEY) || memoryToken;
+  } catch {
+    return memoryToken;
+  }
+}
+
+function saveToken(token) {
+  memoryToken = token;
+  try {
+    if (token) localStorage.setItem(VISITOR_KEY, token);
+    else localStorage.removeItem(VISITOR_KEY);
+  } catch {
+    // Storage unavailable (private mode, blocked). The in-memory copy is used.
+  }
+}
+
+async function ensureVisitorToken() {
+  const existing = readToken();
+  if (existing) return existing;
+
+  // Share one request between concurrent callers.
+  tokenRequest ??= request("/api/visitor", { method: "POST" }, "Could not start a session.")
+    .then((data) => {
+      saveToken(data.visitor_token);
+      return data.visitor_token;
+    })
+    .finally(() => {
+      tokenRequest = null;
+    });
+  return tokenRequest;
+}
+
+// Like request(), but sends the visitor token. If the server rejects the token
+// (401, e.g. the signing secret changed) we get a fresh one and retry once.
+// With `optional`, a failure to get a token is ignored and the call is made
+// anonymously.
+async function visitorRequest(url, options = {}, fallbackMessage, { optional = false } = {}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let token = null;
+    try {
+      token = await ensureVisitorToken();
+    } catch (err) {
+      if (!optional) throw err;
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers: { ...options.headers, ...(token && { "X-Visitor-Token": token }) },
+    });
+
+    if (response.status === 401 && token && attempt === 0) {
+      saveToken(null);
+      continue;
+    }
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(errorMessage(data, fallbackMessage));
+    return data;
+  }
+  throw new Error(fallbackMessage);
+}
+
+// sort: "recent" (newest first) or "seen" (most "I have seen this too" first).
+export const fetchCommunityClaims = (page, pageSize, sort = "recent") =>
+  visitorRequest(
+    `/api/community-claims?page=${page}&page_size=${pageSize}&sort=${encodeURIComponent(sort)}`,
     undefined,
-    "Could not load community fact-checks."
+    "Could not load community fact-checks.",
+    { optional: true }
+  );
+
+// Both resolve with { claim_id, seen_count, seen_by_me }.
+export const markClaimSeen = (id) =>
+  visitorRequest(
+    `/api/community-claims/${id}/seen`,
+    { method: "PUT" },
+    "Could not save your response."
+  );
+
+export const unmarkClaimSeen = (id) =>
+  visitorRequest(
+    `/api/community-claims/${id}/seen`,
+    { method: "DELETE" },
+    "Could not undo your response."
+  );
+
+// Stores a challenge to a community fact-check. Resolves with
+// { challenge_id, status, created_at }.
+export const submitChallenge = (id, payload) =>
+  visitorRequest(
+    `/api/community-claims/${id}/challenges`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    "Could not submit your challenge."
   );
 
 export const fetchCommunityReport = (id) =>
